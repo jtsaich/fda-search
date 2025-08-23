@@ -1,4 +1,3 @@
-import os
 from typing import List
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
@@ -7,10 +6,13 @@ load_dotenv()
 
 class EmbeddingService:
     def __init__(self):
-        self.model_id = "sentence-transformers/all-MiniLM-L6-v2"
+        # Use a smaller, more memory-efficient model
+        # paraphrase-MiniLM-L3-v2: ~60MB vs all-MiniLM-L6-v2: ~90MB
+        self.model_id = "sentence-transformers/paraphrase-MiniLM-L3-v2"
         try:
             # Load the model locally for better performance and reliability
             self.model = SentenceTransformer(self.model_id)
+            print(f"Successfully loaded embedding model: {self.model_id}")
         except Exception as e:
             print(f"Error loading sentence transformer model: {e}")
             self.model = None
