@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from services.document_service import DocumentService
 from services.vector_service import VectorService
 from services.embedding_service import EmbeddingService
+from services.llm_service import LLMService
 
 load_dotenv()
 
@@ -17,6 +18,7 @@ load_dotenv()
 document_service = DocumentService()
 vector_service = VectorService()
 embedding_service = EmbeddingService()
+llm_service = LLMService()
 
 app = FastAPI(title="FDA RAG API", version="1.0.0")
 
@@ -131,18 +133,20 @@ async def query_documents(request: QueryRequest):
             })
             context_chunks.append(metadata.get("text", ""))
         
-        # Create context for response generation
-        context = "\n\n".join(context_chunks[:3])  # Use top 3 chunks
-        
-        if not context:
+        # Check if we have relevant context
+        if not context_chunks:
             return QueryResponse(
                 answer="I couldn't find any relevant information in the uploaded documents for your query.",
                 sources=[],
                 confidence=0.0
             )
         
-        # Generate answer based on context (for now, return context-aware response)
-        answer = f"Based on the uploaded documents, here's what I found:\n\n{context[:500]}..."
+        # Generate LLM response using the retrieved context
+        answer = await llm_service.generate_rag_response(
+            query=request.query,
+            context_chunks=context_chunks,
+            sources=sources
+        )
         
         return QueryResponse(
             answer=answer,
@@ -203,6 +207,11 @@ async def test_embeddings():
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@app.get("/health/llm")
+async def test_llm():
+    """Test OpenRouter LLM connection"""
+    return await llm_service.test_connection()
 
 if __name__ == "__main__":
     import uvicorn

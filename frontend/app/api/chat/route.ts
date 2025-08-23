@@ -1,12 +1,5 @@
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { streamText } from "ai";
-
-// Allow streaming responses up to 30 seconds
+// Simplified API route - backend now handles LLM generation
 export const maxDuration = 30;
-
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
 
 interface QueryResponse {
   answer: string;
@@ -61,42 +54,24 @@ export async function POST(req: Request) {
 
     const ragData: QueryResponse = await ragResponse.json();
 
-    // Format response with sources
-    let responseText = ragData.answer;
-
-    if (ragData.sources.length > 0) {
-      responseText += "\n\n**Sources:**\n";
-      ragData.sources.forEach((source, index) => {
-        responseText += `${index + 1}. ${source.filename} (similarity: ${(
-          source.similarity_score * 100
-        ).toFixed(1)}%)\n`;
-      });
-    }
-
-    // Use the OpenRouter model to stream the RAG response
-    const result = streamText({
-      model: openrouter("meta-llama/llama-3.2-3b-instruct:free"),
-      system: `You are a helpful FDA regulatory assistant. The user has asked a question and here is the relevant information from the knowledge base:\n\n${responseText}\n\nPlease provide this information as your response, keeping the formatting and sources intact.`,
-      messages: [{ role: "user", content: messageText }],
-      temperature: 0.1,
+    // Return the response directly from the backend (it already includes sources)
+    return new Response(ragData.answer, {
+      headers: {
+        'Content-Type': 'text/plain',
+      },
     });
-
-    return result.toUIMessageStreamResponse();
   } catch (error) {
     console.error("Error in chat API:", error);
 
-    // Fallback to a simple error response
-    const result = streamText({
-      model: openrouter("meta-llama/llama-3.2-3b-instruct:free"),
-      messages: [
-        {
-          role: "user",
-          content:
-            "I apologize, but I encountered an error processing your request. Please try again.",
+    // Return simple error response
+    return new Response(
+      "I apologize, but I encountered an error processing your request. Please try again.",
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'text/plain',
         },
-      ],
-    });
-
-    return result.toUIMessageStreamResponse();
+      }
+    );
   }
 }

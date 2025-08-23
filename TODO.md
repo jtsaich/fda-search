@@ -90,6 +90,25 @@ Sources:
 - ✅ **Real-time Feedback**: Streaming responses for better UX
 - ✅ **Error Messages**: User-friendly error handling and feedback
 
+## ✅ **ARCHITECTURE IMPROVEMENT: Backend LLM Integration - COMPLETE**
+
+### Architecture Improvement Completed
+- [x] **Move LLM processing to backend** - ✅ LLM generation now handled in backend `/query` endpoint
+- [x] **Add OpenRouter integration to backend** - ✅ Installed OpenAI client and configured OpenRouter
+- [x] **Update RAG query endpoint** - ✅ Generate intelligent LLM responses instead of raw context
+- [x] **Simplify frontend API route** - ✅ Removed complex AI SDK dependencies, simple fetch-based API
+- [x] **Test end-to-end improvement** - ✅ Complete RAG pipeline verified with backend LLM generation
+
+**Previous Issue:** Backend `/query` endpoint returned raw context chunks, frontend processed with LLM
+**✅ SOLVED:** Backend now handles complete RAG pipeline including LLM generation, returns final intelligent responses
+
+### Key Improvements Made:
+- **🎯 Clean Architecture**: Backend handles RAG + LLM, frontend just displays responses
+- **🚀 Better Performance**: Eliminated complex streaming dependencies in frontend  
+- **🧠 Smarter Responses**: LLM processes context intelligently instead of returning raw text
+- **🔗 Source Attribution**: Automatic source formatting with similarity scores
+- **🛠️ Maintainability**: Simpler codebase, easier to debug and extend
+
 ## 📋 **OPTIONAL FUTURE ENHANCEMENTS**
 
 ### Document Management UI
@@ -154,14 +173,26 @@ PINECONE_INDEX_NAME=fda-documents
 
 ---
 
-## 🎉 **PROJECT STATUS: COMPLETE & FUNCTIONAL**
+## 🎉 **PROJECT STATUS: COMPLETE & IMPROVED**
 
-The FDA RAG Assistant is now **fully operational** with a complete end-to-end RAG pipeline:
+The FDA RAG Assistant is now **fully operational** with an **improved architecture** and complete end-to-end RAG pipeline:
 
 1. ✅ **Document Upload** → Text processing → Chunking → Local embeddings → Pinecone storage
-2. ✅ **User Query** → Embedding generation → Vector search → Context assembly → LLM completion  
-3. ✅ **Streaming Response** → Real-time chat interface with source citations
+2. ✅ **User Query** → Embedding generation → Vector search → Backend LLM generation → Intelligent response
+3. ✅ **Clean Chat Interface** → Simple frontend displaying LLM-powered responses with source citations
+
+### **Recent Architecture Improvements:**
+- **🏗️ Moved LLM processing to backend** for cleaner separation of concerns
+- **🧠 Intelligent responses** using OpenRouter LLM integration in backend
+- **🚀 Simplified frontend** with removal of complex streaming dependencies
+- **🔗 Enhanced source attribution** with automatic formatting and similarity scores
+- **🛠️ Better maintainability** with cleaner, more focused codebase
+
+**Current Architecture:**
+- **Backend** (FastAPI): Complete RAG pipeline including LLM generation
+- **Frontend** (Next.js): Simple chat interface for user interaction
+- **Best Practices**: Clean separation, easier debugging, production-ready
 
 **Ready for production use or further development!**
 
-*Last Updated: January 2025 - All core functionality implemented and tested*
+*Last Updated: January 2025 - Core functionality complete + architecture improvements*
