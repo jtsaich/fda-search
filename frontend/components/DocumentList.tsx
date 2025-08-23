@@ -18,7 +18,8 @@ export function DocumentList() {
 
   const fetchDocuments = async () => {
     try {
-      const response = await fetch('http://localhost:8000/documents');
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      const response = await fetch(`${backendUrl}/documents`);
       if (response.ok) {
         const data = await response.json();
         setDocuments(data);
@@ -37,7 +38,8 @@ export function DocumentList() {
   const deleteDocument = async (id: string) => {
     setDeletingId(id);
     try {
-      const response = await fetch(`http://localhost:8000/documents/${id}`, {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      const response = await fetch(`${backendUrl}/documents/${id}`, {
         method: 'DELETE',
       });
       
