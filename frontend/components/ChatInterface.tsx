@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
-import { useState } from 'react';
-import { Send, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { useState } from "react";
+import { Send, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function ChatInterface() {
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
-      api: '/api/chat',
+      api: "/api/chat",
     }),
   });
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
 
-  const isLoading = status !== 'ready';
+  const isLoading = status !== "ready";
 
   return (
     <div className="flex flex-col h-[600px] w-full max-w-4xl mx-auto border rounded-lg shadow-lg">
@@ -47,7 +47,7 @@ export function ChatInterface() {
               >
                 <div className="whitespace-pre-wrap">
                   {message.parts.map((part, index) =>
-                    part.type === 'text' ? (
+                    part.type === "text" ? (
                       <span key={index}>{part.text}</span>
                     ) : null
                   )}
@@ -70,7 +70,7 @@ export function ChatInterface() {
           e.preventDefault();
           if (input.trim()) {
             sendMessage({ text: input });
-            setInput('');
+            setInput("");
           }
         }}
         className="border-t p-4"
@@ -79,13 +79,13 @@ export function ChatInterface() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={status !== 'ready'}
+            disabled={status !== "ready"}
             placeholder="Ask questions about FDA regulations..."
             className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"
-            disabled={status !== 'ready' || !input.trim()}
+            disabled={status !== "ready" || !input.trim()}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? (

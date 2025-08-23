@@ -1,45 +1,40 @@
 import os
-import requests
 from typing import List
+from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 
 load_dotenv()
 
 class EmbeddingService:
     def __init__(self):
-        self.api_key = os.getenv("HUGGINGFACE_API_KEY")
         self.model_id = "sentence-transformers/all-MiniLM-L6-v2"
-        self.api_url = f"https://api-inference.huggingface.co/models/{self.model_id}"
-        self.headers = {"Authorization": f"Bearer {self.api_key}"}
+        try:
+            # Load the model locally for better performance and reliability
+            self.model = SentenceTransformer(self.model_id)
+        except Exception as e:
+            print(f"Error loading sentence transformer model: {e}")
+            self.model = None
     
     async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for a list of texts"""
-        embeddings = []
+        if not self.model:
+            raise Exception("Sentence transformer model not loaded")
         
-        for text in texts:
-            response = requests.post(
-                self.api_url,
-                headers=self.headers,
-                json={"inputs": text}
-            )
-            
-            if response.status_code == 200:
-                embedding = response.json()
-                embeddings.append(embedding)
-            else:
-                raise Exception(f"Error generating embedding: {response.text}")
-        
-        return embeddings
+        try:
+            # Generate embeddings for all texts at once (more efficient)
+            embeddings = self.model.encode(texts)
+            return [embedding.tolist() for embedding in embeddings]
+        except Exception as e:
+            raise Exception(f"Error generating embeddings: {str(e)}")
     
     async def generate_embedding(self, text: str) -> List[float]:
         """Generate embedding for a single text"""
-        response = requests.post(
-            self.api_url,
-            headers=self.headers,
-            json={"inputs": text}
-        )
+        if not self.model:
+            raise Exception("Sentence transformer model not loaded")
         
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"Error generating embedding: {response.text}")
+        try:
+            # Generate embedding for single text
+            embedding = self.model.encode([text])
+            return embedding[0].tolist()  # Return as list of floats
+        except Exception as e:
+            raise Exception(f"Error generating embedding: {str(e)}")

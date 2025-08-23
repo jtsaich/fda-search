@@ -1,0 +1,10 @@
+FDA Regulatory Guidance
+
+The Food and Drug Administration (FDA) is responsible for protecting the public health by regulating and supervising the safety of drugs, biological products, and medical devices.
+
+Key Principles:
+1. Safety and efficacy must be demonstrated before approval
+2. Risk-benefit analysis guides regulatory decisions
+3. Post-market surveillance ensures continued safety
+
+This document serves as a test for the RAG system document processing capabilities.
