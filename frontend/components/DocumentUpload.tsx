@@ -61,7 +61,7 @@ export function DocumentUpload() {
         } else {
           throw new Error('Upload failed');
         }
-      } catch (error) {
+      } catch {
         setFiles(prev => prev.map((f, idx) => 
           idx === i ? { ...f, status: 'error', message: 'Upload failed' } : f
         ));

@@ -29,8 +29,8 @@ export async function POST(req: Request) {
       messageText = lastMessage.content;
     } else if (lastMessage.parts) {
       messageText = lastMessage.parts
-        .filter((part: any) => part.type === "text")
-        .map((part: any) => part.text)
+        .filter((part: unknown) => (part as { type?: string }).type === "text")
+        .map((part: unknown) => (part as { text: string }).text)
         .join(" ");
     }
 
