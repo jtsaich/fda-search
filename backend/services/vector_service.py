@@ -97,3 +97,61 @@ class VectorService:
             "document_id": document_id,
             "status": "deleted"
         }
+    
+    async def list_documents(self) -> List[Dict[str, Any]]:
+        """List all unique documents in the vector database"""
+        if not self.api_key or not self.index:
+            return []
+        
+        try:
+            # Query all vectors to get metadata (this is a simple approach)
+            # For large datasets, you'd want to implement a proper document registry
+            results = self.index.query(
+                vector=[0.0] * 384,  # Dummy vector
+                top_k=10000,  # Large number to get all vectors
+                include_metadata=True,
+                include_values=False
+            )
+            
+            # Group by document_id to get unique documents
+            documents_dict = {}
+            for match in results.get("matches", []):
+                metadata = match.get("metadata", {})
+                doc_id = metadata.get("document_id")
+                
+                if doc_id and doc_id not in documents_dict:
+                    documents_dict[doc_id] = {
+                        "id": doc_id,
+                        "filename": metadata.get("filename", "Unknown"),
+                        "upload_date": metadata.get("upload_date", "Unknown"),
+                        "chunks": []
+                    }
+                
+                if doc_id:
+                    documents_dict[doc_id]["chunks"].append({
+                        "chunk_index": metadata.get("chunk_index", 0),
+                        "token_count": metadata.get("token_count", 0)
+                    })
+            
+            # Calculate aggregate info for each document
+            document_list = []
+            for doc_id, doc_info in documents_dict.items():
+                chunks = doc_info["chunks"]
+                total_tokens = sum(chunk["token_count"] for chunk in chunks)
+                
+                document_list.append({
+                    "id": doc_id,
+                    "filename": doc_info["filename"],
+                    "upload_date": doc_info["upload_date"],
+                    "size": total_tokens * 4,  # Rough estimate: 4 bytes per token
+                    "chunk_count": len(chunks)
+                })
+            
+            # Sort by upload date (newest first)
+            document_list.sort(key=lambda x: x.get("upload_date", ""), reverse=True)
+            
+            return document_list
+            
+        except Exception as e:
+            print(f"Error listing documents: {e}")
+            return []

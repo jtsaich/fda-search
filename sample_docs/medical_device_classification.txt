@@ -1,0 +1,98 @@
+FDA Medical Device Classification and Regulatory Controls
+
+1. Overview
+Medical devices are classified into three classes (I, II, III) based on the level of control necessary to assure safety and effectiveness. The classification determines the regulatory requirements before marketing.
+
+2. Class I Devices - Low Risk
+Class I devices present minimal potential for harm to the user and are subject to the least regulatory control.
+
+Examples:
+- Elastic bandages
+- Examination gloves
+- Hand-held surgical instruments
+
+Controls:
+- General controls apply to all medical devices
+- Most are exempt from premarket notification (510(k))
+- Must comply with Quality System Regulation (QSR)
+
+3. Class II Devices - Moderate Risk
+Class II devices require special controls in addition to general controls to provide reasonable assurance of safety and effectiveness.
+
+Examples:
+- X-ray machines
+- Powered wheelchairs
+- Infusion pumps
+- Surgical drapes
+
+Controls:
+- General controls
+- Special controls (may include performance standards, labeling requirements, guidance documents)
+- Most require premarket notification (510(k)) clearance
+
+4. Class III Devices - High Risk
+Class III devices are those for which insufficient information exists to assure safety and effectiveness solely through general or special controls.
+
+Examples:
+- Heart valves
+- Silicone gel breast implants
+- Implantable pacemakers
+
+Controls:
+- General controls
+- Premarket approval (PMA) required
+- Clinical data typically required
+- Most stringent regulatory oversight
+
+5. De Novo Classification Process
+For novel devices without a predicate device, the De Novo process allows classification into Class I or II with appropriate controls.
+
+Requirements:
+- Submission must demonstrate safety and effectiveness
+- Device cannot be classified through traditional 510(k) process
+- FDA establishes special controls for Class II devices
+
+6. 510(k) Premarket Notification
+Most Class II devices require 510(k) clearance before marketing:
+
+Key Elements:
+- Demonstrate substantial equivalence to predicate device
+- Provide comparative information on safety and effectiveness
+- Include labeling and performance testing data
+- FDA has 90 days to review (may be extended)
+
+7. Premarket Approval (PMA)
+Class III devices typically require PMA approval:
+
+Key Elements:
+- Comprehensive scientific evidence of safety and effectiveness
+- Clinical studies usually required
+- Manufacturing information
+- Labeling and risk analysis
+- FDA review period: 180 days (may be extended)
+
+8. Quality System Regulation (QSR)
+All medical device manufacturers must comply with QSR requirements:
+
+Key Requirements:
+- Design controls for Class II and III devices
+- Document control and management responsibility
+- Corrective and preventive action procedures
+- Production and process controls
+
+9. Postmarket Requirements
+After market authorization, manufacturers must:
+- Report adverse events through MedWatch
+- Maintain device registration and listing
+- Comply with labeling requirements
+- Conduct postmarket surveillance studies when required
+
+10. Regulatory Decision Factors
+FDA considers several factors in device regulation:
+- Intended use and indications for use
+- Level of risk to patients and users
+- Available scientific evidence
+- Benefit-risk profile
+- Availability of alternative treatments
+
+For specific guidance on device classification, consult the FDA device classification database and relevant guidance documents.

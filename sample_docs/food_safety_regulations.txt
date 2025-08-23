@@ -1,0 +1,154 @@
+FDA Food Safety Modernization Act and Current Good Manufacturing Practices
+
+1. Food Safety Modernization Act (FSMA) Overview
+The FDA Food Safety Modernization Act, signed into law in 2011, represents the most sweeping reform of food safety laws in the United States in more than 70 years.
+
+Key Principles:
+- Prevention-focused approach rather than response-focused
+- Enhanced oversight of imported foods
+- Improved partnerships with state and local authorities
+- Strengthened FDA enforcement tools
+
+2. Preventive Controls for Human Food
+Facilities manufacturing, processing, packing, or holding human food must comply with preventive controls requirements:
+
+Food Safety Plan Requirements:
+- Hazard analysis identifying known or reasonably foreseeable hazards
+- Preventive controls to minimize or prevent hazards
+- Monitoring procedures for preventive controls
+- Corrective actions and verification activities
+- Record-keeping requirements
+
+Covered Facilities:
+- Food facilities required to register with FDA
+- Exemptions for certain small businesses and farms
+- Different requirements based on facility size and type
+
+3. Produce Safety Rule
+Establishes science-based minimum standards for growing, harvesting, packing, and holding of produce:
+
+Key Requirements:
+- Agricultural water quality and testing
+- Biological soil amendments (compost, manure)
+- Health and hygiene of workers
+- Equipment, tools, and buildings sanitation
+- Domesticated and wild animals management
+
+Covered Produce:
+- Fruits and vegetables typically consumed raw
+- Exemptions for produce rarely consumed raw
+- On-farm packing and holding activities
+
+4. Current Good Manufacturing Practices (cGMPs)
+Basic sanitary conditions and practices for food facilities:
+
+Personnel Requirements:
+- Health and hygiene standards
+- Training in food safety principles
+- Supervisor oversight responsibilities
+- Exclusion of ill employees
+
+Plant and Grounds:
+- Adequate physical facilities
+- Proper drainage and waste disposal
+- Pest control programs
+- Sanitary facilities and accommodations
+
+Equipment and Utensils:
+- Sanitary design and construction
+- Cleaning and sanitizing procedures
+- Proper installation and maintenance
+- Contact surface materials requirements
+
+5. Hazard Analysis and Critical Control Points (HACCP)
+HACCP principles applied to specific food categories:
+
+Seven HACCP Principles:
+1. Conduct hazard analysis
+2. Determine critical control points (CCPs)
+3. Establish critical limits
+4. Establish monitoring procedures
+5. Establish corrective actions
+6. Establish verification procedures
+7. Establish record-keeping and documentation
+
+Mandatory HACCP:
+- Seafood processing
+- Juice processing
+- Meat and poultry (USDA jurisdiction with FDA oversight)
+
+6. Foreign Supplier Verification Programs (FSVP)
+Importers must verify that foreign suppliers produce food in compliance with U.S. safety standards:
+
+FSVP Requirements:
+- Hazard analysis for each imported food
+- Evaluation and approval of foreign suppliers
+- Verification activities for supplier compliance
+- Corrective actions when problems identified
+
+Verification Activities:
+- On-site audits and inspections
+- Sampling and testing
+- Review of supplier food safety records
+- Other appropriate verification measures
+
+7. Intentional Adulteration (Food Defense)
+Protection against acts intended to cause wide-scale harm to public health:
+
+Mitigation Strategies Required:
+- Vulnerability assessment at each step
+- Identification of significant vulnerabilities
+- Mitigation strategies for each vulnerability
+- Food defense monitoring, corrective actions, and verification
+
+Key Elements:
+- Actionable process steps identification
+- Focused mitigation strategies
+- Food defense monitoring procedures
+- Verification and validation activities
+
+8. Traceability and Recordkeeping
+Enhanced traceability requirements for high-risk foods:
+
+Traceability Records:
+- Maintenance of records for tracing food through supply chain
+- Critical tracking events documentation
+- Key data elements for each event
+- Electronic format preferred
+
+Foods Subject to Enhanced Traceability:
+- Foods on FDA's traceability list
+- High-risk foods with history of contamination
+- Foods frequently associated with foodborne illness outbreaks
+
+9. Laboratory Accreditation
+Food testing laboratories must meet accreditation standards:
+
+Accreditation Requirements:
+- ISO/IEC 17025 standard compliance
+- Recognized accrediting bodies
+- Proficiency testing participation
+- Method validation and verification
+
+Testing Applications:
+- Routine surveillance testing
+- For-cause testing investigations
+- Import screening and testing
+- Outbreak investigations
+
+10. Enforcement and Compliance
+Enhanced FDA enforcement authorities:
+
+New Authorities:
+- Mandatory recall authority
+- Enhanced inspection access
+- Administrative detention authority
+- Suspension of facility registration
+
+Inspection Frequency:
+- High-risk facilities: at least every 3 years
+- Other facilities: at least every 5 years
+- Foreign facilities: increasing inspection frequency
+- Risk-based inspection allocation
+
+Compliance with FSMA regulations ensures a comprehensive, prevention-based approach to food safety that protects public health while supporting a competitive food industry.

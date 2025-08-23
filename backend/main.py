@@ -83,7 +83,8 @@ async def upload_document(file: UploadFile = File(...)):
                     "filename": result["filename"],
                     "chunk_index": i,
                     "text": chunk["text"],
-                    "token_count": chunk["token_count"]
+                    "token_count": chunk["token_count"],
+                    "upload_date": result["upload_date"]
                 }
             })
         
@@ -159,19 +160,39 @@ async def query_documents(request: QueryRequest):
 
 @app.get("/documents", response_model=List[Document])
 async def list_documents():
-    return [
-        Document(
-            id="doc_123",
-            filename="sample.pdf",
-            upload_date="2024-01-01",
-            size=1024000,
-            chunk_count=10
-        )
-    ]
+    try:
+        # Get documents from vector database
+        documents = await vector_service.list_documents()
+        
+        # Convert to Document model format
+        document_list = []
+        for doc in documents:
+            document_list.append(Document(
+                id=doc["id"],
+                filename=doc["filename"],
+                upload_date=doc["upload_date"],
+                size=doc["size"],
+                chunk_count=doc["chunk_count"]
+            ))
+        
+        return document_list
+    except Exception as e:
+        # Return empty list if error occurs
+        print(f"Error listing documents: {e}")
+        return []
 
 @app.delete("/documents/{document_id}")
 async def delete_document(document_id: str):
-    return {"message": f"Document {document_id} deleted successfully"}
+    try:
+        # Delete document vectors from Pinecone
+        result = await vector_service.delete_document_vectors(document_id)
+        
+        if result.get("status") == "deleted":
+            return {"message": f"Document {document_id} deleted successfully"}
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to delete document: {result.get('message', 'Unknown error')}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting document: {str(e)}")
 
 @app.get("/health/pinecone")
 async def test_pinecone():
