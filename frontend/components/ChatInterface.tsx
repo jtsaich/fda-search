@@ -10,7 +10,11 @@ interface Message {
   content: string;
 }
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  selectedModel: string;
+}
+
+export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -28,22 +32,24 @@ export function ChatInterface() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const response = await fetch(`${backendUrl}/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: [userMessage],
+          query: text,
+          model: selectedModel,
         }),
       });
 
-      const responseText = await response.text();
+      const responseData = await response.json();
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",  
-        content: responseText,
+        content: responseData.answer || "No response received",
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -121,7 +127,7 @@ export function ChatInterface() {
             onChange={(e) => setInput(e.target.value)}
             disabled={isLoading}
             placeholder="Ask questions about FDA regulations..."
-            className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-4 py-2 border rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"
