@@ -31,7 +31,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://frontend-*.vercel.app",  # Allow all Vercel preview deployments
+        "https://frontend-git-main-jtsaichs-projects.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
