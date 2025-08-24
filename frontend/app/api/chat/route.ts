@@ -37,7 +37,9 @@ export async function POST(req: Request) {
     console.log("Query:", messageText);
 
     // Query the RAG backend
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+    const backendUrl =
+      process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+    console.log(backendUrl);
     const ragResponse = await fetch(`${backendUrl}/query`, {
       method: "POST",
       headers: {
@@ -58,7 +60,7 @@ export async function POST(req: Request) {
     // Return the response directly from the backend (it already includes sources)
     return new Response(ragData.answer, {
       headers: {
-        'Content-Type': 'text/plain',
+        "Content-Type": "text/plain",
       },
     });
   } catch (error) {
@@ -70,7 +72,7 @@ export async function POST(req: Request) {
       {
         status: 500,
         headers: {
-          'Content-Type': 'text/plain',
+          "Content-Type": "text/plain",
         },
       }
     );
