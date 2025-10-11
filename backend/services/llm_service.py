@@ -1,9 +1,33 @@
 import os
+import base64
 from typing import List, Dict, Any, Optional
 import openai
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+def encode_file_to_base64(file_path: str) -> str:
+    """Encode a file to base64 string"""
+    with open(file_path, "rb") as file:
+        return base64.b64encode(file.read()).decode("utf-8")
+
+
+def get_file_mime_type(filename: str) -> str:
+    """Get MIME type based on file extension"""
+    ext = filename.lower().split(".")[-1]
+    mime_types = {
+        "pdf": "application/pdf",
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "gif": "image/gif",
+        "webp": "image/webp",
+        "txt": "text/plain",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "doc": "application/msword",
+    }
+    return mime_types.get(ext, "application/octet-stream")
 
 
 class LLMService:
@@ -23,8 +47,9 @@ class LLMService:
         context_chunks: List[str],
         sources: List[Dict[str, Any]],
         model: Optional[str] = None,
+        attached_files: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
-        """Generate RAG response using LLM with retrieved context"""
+        """Generate RAG response using LLM with retrieved context and optional file attachments"""
         if not self.client:
             raise Exception("OpenRouter API key not configured")
 
@@ -52,12 +77,15 @@ The user's question is: {query}"""
             # Use provided model or fallback to default
             selected_model = model if model else self.model
 
+            # Build user message content (multimodal if files attached)
+            user_content = self._build_multimodal_content(query, attached_files)
+
             # Generate response using OpenRouter
             response = self.client.chat.completions.create(
                 model=selected_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": query},
+                    {"role": "user", "content": user_content},
                 ],
                 temperature=0.1,
                 max_tokens=500,
@@ -77,8 +105,64 @@ The user's question is: {query}"""
             print(f"OpenRouter API Error: {str(e)}")
             raise Exception(f"Error generating LLM response: {str(e)}")
 
+    def _build_multimodal_content(
+        self, query: str, attached_files: Optional[List[Dict[str, Any]]] = None
+    ):
+        """Build multimodal content array for messages with text and files"""
+        # If no files, return simple text
+        if not attached_files:
+            return query
+
+        # Build content array with text and files
+        content = [{"type": "text", "text": query}]
+
+        for file_info in attached_files:
+            file_path = file_info.get("path")
+            filename = file_info.get("filename", "")
+            mime_type = get_file_mime_type(filename)
+
+            # Encode file to base64
+            base64_data = encode_file_to_base64(file_path)
+
+            # Handle different file types
+            if mime_type.startswith("image/"):
+                # Image format for OpenRouter
+                content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{mime_type};base64,{base64_data}"
+                        },
+                    }
+                )
+            elif mime_type == "application/pdf":
+                # PDF format for OpenRouter
+                content.append(
+                    {
+                        "type": "file",
+                        "file": {
+                            "filename": filename,
+                            "file_data": f"data:{mime_type};base64,{base64_data}",
+                        },
+                    }
+                )
+            else:
+                # For text files, we could extract and include as text
+                # For now, treat as generic file
+                content.append(
+                    {
+                        "type": "file",
+                        "file": {
+                            "filename": filename,
+                            "file_data": f"data:{mime_type};base64,{base64_data}",
+                        },
+                    }
+                )
+
+        return content
+
     async def generate_direct_response(
-        self, query: str, model: Optional[str] = None
+        self, query: str, model: Optional[str] = None, attached_files: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """Generate direct LLM response without RAG context"""
         if not self.client:
@@ -93,12 +177,15 @@ Please provide helpful and accurate responses based on your training data. Be cl
             # Use provided model or fallback to default
             selected_model = model if model else self.model
 
+            # Build user message content (multimodal if files attached)
+            user_content = self._build_multimodal_content(query, attached_files)
+
             # Generate response using OpenRouter
             response = self.client.chat.completions.create(
                 model=selected_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": query},
+                    {"role": "user", "content": user_content},  # type: ignore
                 ],
                 temperature=0.7,
                 max_tokens=500,

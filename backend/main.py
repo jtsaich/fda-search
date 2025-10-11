@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -130,18 +130,47 @@ async def upload_document(file: UploadFile = File(...)):
 
 
 @app.post("/query", response_model=QueryResponse)
-async def query_documents(request: QueryRequest):
-    logger.info(f"Received query request: {request.query}")
+async def query_documents(
+    query: str = Form(...),
+    model: str = Form("google/gemma-3-27b-it:free"),
+    max_results: int = Form(5),
+    files: List[UploadFile] = File(default=[]),
+):
+    logger.info(f"Received query request: {query}")
+    logger.info(f"Attached files: {len(files)}")
+
+    # Save attached files temporarily and prepare for LLM
+    attached_files_info = []
+    temp_file_paths = []
+
+    if files:
+        uploads_dir = Path("uploads")
+        uploads_dir.mkdir(exist_ok=True)
+
+        for file in files:
+            logger.info(f"Processing attached file: {file.filename}")
+
+            # Save file temporarily
+            temp_path = uploads_dir / f"temp_{file.filename}"
+            with open(temp_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            temp_file_paths.append(temp_path)
+            attached_files_info.append({
+                "path": str(temp_path),
+                "filename": file.filename,
+            })
+
     try:
         # Generate embedding for the query
         logger.info("Generating embedding for query...")
-        query_embedding = await embedding_service.generate_embedding(request.query)
+        query_embedding = await embedding_service.generate_embedding(query)
         logger.info(f"Generated embedding with dimension: {len(query_embedding)}")
 
         # Search for similar chunks in Pinecone
         logger.info("Searching for similar chunks in Pinecone...")
         similar_chunks = await vector_service.search_similar(
-            query_embedding, top_k=request.max_results or 5
+            query_embedding, top_k=max_results
         )
         logger.info(f"Found {len(similar_chunks)} similar chunks")
 
@@ -173,10 +202,11 @@ async def query_documents(request: QueryRequest):
         # Try to generate LLM response, fallback to context if LLM fails
         try:
             answer = await llm_service.generate_rag_response(
-                query=request.query,
+                query=query,
                 context_chunks=context_chunks,
                 sources=sources,
-                model=request.model,
+                model=model,
+                attached_files=attached_files_info if attached_files_info else None,
             )
         except Exception as llm_error:
             logger.error(f"LLM service error in /query endpoint: {llm_error}")
@@ -198,17 +228,51 @@ async def query_documents(request: QueryRequest):
 
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
+    finally:
+        # Clean up temporary files
+        for temp_path in temp_file_paths:
+            if temp_path.exists():
+                os.remove(temp_path)
 
 
 @app.post("/query-direct", response_model=DirectQueryResponse)
-async def query_direct(request: QueryRequest):
+async def query_direct(
+    query: str = Form(...),
+    model: str = Form("google/gemma-3-27b-it:free"),
+    files: List[UploadFile] = File(default=[]),
+):
     """Direct LLM query without RAG - for comparison purposes"""
-    logger.info(f"Received direct query request: {request.query}")
+    logger.info(f"Received direct query request: {query}")
+    logger.info(f"Attached files: {len(files)}")
+
+    # Save attached files temporarily and prepare for LLM
+    attached_files_info = []
+    temp_file_paths = []
+
+    if files:
+        uploads_dir = Path("uploads")
+        uploads_dir.mkdir(exist_ok=True)
+
+        for file in files:
+            logger.info(f"Processing attached file: {file.filename}")
+
+            # Save file temporarily
+            temp_path = uploads_dir / f"temp_{file.filename}"
+            with open(temp_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            temp_file_paths.append(temp_path)
+            attached_files_info.append({
+                "path": str(temp_path),
+                "filename": file.filename,
+            })
+
     try:
         # Generate direct LLM response without retrieval
         answer = await llm_service.generate_direct_response(
-            query=request.query,
-            model=request.model,
+            query=query,
+            model=model,
+            attached_files=attached_files_info if attached_files_info else None,
         )
 
         return DirectQueryResponse(answer=answer)
@@ -222,6 +286,11 @@ async def query_direct(request: QueryRequest):
         raise HTTPException(
             status_code=500, detail=f"Error processing direct query: {str(e)}"
         )
+    finally:
+        # Clean up temporary files
+        for temp_path in temp_file_paths:
+            if temp_path.exists():
+                os.remove(temp_path)
 
 
 @app.get("/documents", response_model=List[Document])
