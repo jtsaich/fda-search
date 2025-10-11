@@ -13,8 +13,16 @@ from services.vector_service import VectorService
 from services.embedding_service import EmbeddingService
 from services.llm_service import LLMService
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging to use stdout instead of stderr
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -134,6 +142,7 @@ async def query_documents(
     query: str = Form(...),
     model: str = Form("google/gemma-3-27b-it:free"),
     max_results: int = Form(5),
+    use_system_prompt: bool = Form(True),
     files: List[UploadFile] = File(default=[]),
 ):
     logger.info(f"Received query request: {query}")
@@ -156,10 +165,12 @@ async def query_documents(
                 shutil.copyfileobj(file.file, buffer)
 
             temp_file_paths.append(temp_path)
-            attached_files_info.append({
-                "path": str(temp_path),
-                "filename": file.filename,
-            })
+            attached_files_info.append(
+                {
+                    "path": str(temp_path),
+                    "filename": file.filename,
+                }
+            )
 
     try:
         # Generate embedding for the query
@@ -207,6 +218,7 @@ async def query_documents(
                 sources=sources,
                 model=model,
                 attached_files=attached_files_info if attached_files_info else None,
+                use_system_prompt=use_system_prompt,
             )
         except Exception as llm_error:
             logger.error(f"LLM service error in /query endpoint: {llm_error}")
@@ -239,6 +251,7 @@ async def query_documents(
 async def query_direct(
     query: str = Form(...),
     model: str = Form("google/gemma-3-27b-it:free"),
+    use_system_prompt: bool = Form(True),
     files: List[UploadFile] = File(default=[]),
 ):
     """Direct LLM query without RAG - for comparison purposes"""
@@ -262,10 +275,12 @@ async def query_direct(
                 shutil.copyfileobj(file.file, buffer)
 
             temp_file_paths.append(temp_path)
-            attached_files_info.append({
-                "path": str(temp_path),
-                "filename": file.filename,
-            })
+            attached_files_info.append(
+                {
+                    "path": str(temp_path),
+                    "filename": file.filename,
+                }
+            )
 
     try:
         # Generate direct LLM response without retrieval
@@ -273,6 +288,7 @@ async def query_direct(
             query=query,
             model=model,
             attached_files=attached_files_info if attached_files_info else None,
+            use_system_prompt=use_system_prompt,
         )
 
         return DirectQueryResponse(answer=answer)
@@ -385,4 +401,4 @@ if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

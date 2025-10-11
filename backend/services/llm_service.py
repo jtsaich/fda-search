@@ -48,6 +48,7 @@ class LLMService:
         sources: List[Dict[str, Any]],
         model: Optional[str] = None,
         attached_files: Optional[List[Dict[str, Any]]] = None,
+        use_system_prompt: bool = True,
     ) -> str:
         """Generate RAG response using LLM with retrieved context and optional file attachments"""
         if not self.client:
@@ -64,14 +65,19 @@ class LLMService:
                 sources_text += f"{i + 1}. {source.get('filename', 'Unknown')} "
                 sources_text += f"(similarity: {(source.get('similarity_score', 0.0) * 100):.1f}%)\n"
 
-        # Create system prompt for RAG
-        system_prompt = f"""You are a helpful FDA regulatory assistant. A user has asked a question and here is the relevant information from the knowledge base:
+        # Build messages array
+        messages = []
+
+        # Add system prompt if enabled
+        if use_system_prompt:
+            system_prompt = f"""You are a helpful FDA regulatory assistant. A user has asked a question and here is the relevant information from the knowledge base:
 
 {context}
 
 Please provide a helpful, accurate response based on this information. Keep the response concise and informative. If you include information from the documents, make sure it's accurate to what's provided in the context.
 
 The user's question is: {query}"""
+            messages.append({"role": "system", "content": system_prompt})
 
         try:
             # Use provided model or fallback to default
@@ -80,13 +86,13 @@ The user's question is: {query}"""
             # Build user message content (multimodal if files attached)
             user_content = self._build_multimodal_content(query, attached_files)
 
+            # Add user message
+            messages.append({"role": "user", "content": user_content})  # type: ignore
+
             # Generate response using OpenRouter
             response = self.client.chat.completions.create(
                 model=selected_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content},
-                ],
+                messages=messages,  # type: ignore
                 temperature=0.1,
                 max_tokens=500,
             )
@@ -114,11 +120,16 @@ The user's question is: {query}"""
             return query
 
         # Build content array with text and files
-        content = [{"type": "text", "text": query}]
+        content: List[Dict[str, Any]] = [{"type": "text", "text": query}]
 
         for file_info in attached_files:
             file_path = file_info.get("path")
             filename = file_info.get("filename", "")
+
+            # Skip if file path is missing
+            if not file_path:
+                continue
+
             mime_type = get_file_mime_type(filename)
 
             # Encode file to base64
@@ -162,16 +173,21 @@ The user's question is: {query}"""
         return content
 
     async def generate_direct_response(
-        self, query: str, model: Optional[str] = None, attached_files: Optional[List[Dict[str, Any]]] = None
+        self, query: str, model: Optional[str] = None, attached_files: Optional[List[Dict[str, Any]]] = None, use_system_prompt: bool = True
     ) -> str:
         """Generate direct LLM response without RAG context"""
         if not self.client:
             raise Exception("OpenRouter API key not configured")
 
-        # Create system prompt for direct queries
-        system_prompt = """You are a helpful FDA regulatory assistant. You have general knowledge about FDA regulations, processes, and guidelines.
+        # Build messages array
+        messages = []
+
+        # Add system prompt if enabled
+        if use_system_prompt:
+            system_prompt = """You are a helpful FDA regulatory assistant. You have general knowledge about FDA regulations, processes, and guidelines.
 
 Please provide helpful and accurate responses based on your training data. Be clear about the limitations of your knowledge and recommend consulting official FDA resources when appropriate."""
+            messages.append({"role": "system", "content": system_prompt})
 
         try:
             # Use provided model or fallback to default
@@ -180,13 +196,13 @@ Please provide helpful and accurate responses based on your training data. Be cl
             # Build user message content (multimodal if files attached)
             user_content = self._build_multimodal_content(query, attached_files)
 
+            # Add user message
+            messages.append({"role": "user", "content": user_content})  # type: ignore
+
             # Generate response using OpenRouter
             response = self.client.chat.completions.create(
                 model=selected_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content},  # type: ignore
-                ],
+                messages=messages,  # type: ignore
                 temperature=0.7,
                 max_tokens=500,
             )

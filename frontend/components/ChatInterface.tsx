@@ -31,6 +31,7 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [useRAG, setUseRAG] = useState(true);
+  const [useSystemPrompt, setUseSystemPrompt] = useState(true);
   const [files, setFiles] = useState<FileList | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -66,6 +67,7 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
         const formData = new FormData();
         formData.append("query", text);
         formData.append("model", selectedModel);
+        formData.append("use_system_prompt", useSystemPrompt.toString());
 
         // Append all files
         Array.from(files).forEach((file) => {
@@ -79,6 +81,7 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
         requestBody = JSON.stringify({
           query: text,
           model: selectedModel,
+          use_system_prompt: useSystemPrompt,
         });
       }
 
@@ -122,7 +125,7 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
   return (
     <div className="flex flex-col h-[600px] w-full max-w-4xl mx-auto border rounded-lg shadow-lg">
       {/* Toggle Control */}
-      <div className="border-b p-3 bg-gray-50">
+      <div className="border-b p-3 bg-gray-50 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-gray-700">Query Mode:</span>
@@ -154,6 +157,19 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
           <div className="text-xs text-gray-500">
             {useRAG ? "Using embeddings + context" : "Direct model response"}
           </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-700">System Prompt:</span>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={useSystemPrompt}
+              onChange={(e) => setUseSystemPrompt(e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700">Use FDA regulatory assistant prompt</span>
+          </label>
         </div>
       </div>
 
