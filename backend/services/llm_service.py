@@ -10,7 +10,7 @@ class LLMService:
     def __init__(self):
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.base_url = "https://openrouter.ai/api/v1"
-        self.model = "google/gemma-2-9b-it:free"
+        self.model = "google/gemma-3-27b-it:free"
 
         if self.api_key:
             self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
@@ -72,6 +72,44 @@ The user's question is: {query}"""
             final_response = llm_response + sources_text
 
             return final_response
+
+        except Exception as e:
+            print(f"OpenRouter API Error: {str(e)}")
+            raise Exception(f"Error generating LLM response: {str(e)}")
+
+    async def generate_direct_response(
+        self, query: str, model: Optional[str] = None
+    ) -> str:
+        """Generate direct LLM response without RAG context"""
+        if not self.client:
+            raise Exception("OpenRouter API key not configured")
+
+        # Create system prompt for direct queries
+        system_prompt = """You are a helpful FDA regulatory assistant. You have general knowledge about FDA regulations, processes, and guidelines.
+
+Please provide helpful and accurate responses based on your training data. Be clear about the limitations of your knowledge and recommend consulting official FDA resources when appropriate."""
+
+        try:
+            # Use provided model or fallback to default
+            selected_model = model if model else self.model
+
+            # Generate response using OpenRouter
+            response = self.client.chat.completions.create(
+                model=selected_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": query},
+                ],
+                temperature=0.7,
+                max_tokens=500,
+            )
+
+            # Extract the response content
+            llm_response = (
+                response.choices[0].message.content or "No response generated"
+            )
+
+            return llm_response
 
         except Exception as e:
             print(f"OpenRouter API Error: {str(e)}")

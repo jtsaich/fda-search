@@ -42,13 +42,17 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     query: str
     max_results: Optional[int] = 5
-    model: Optional[str] = "google/gemma-2-9b-it:free"
+    model: Optional[str] = "google/gemma-3-27b-it:free"
 
 
 class QueryResponse(BaseModel):
     answer: str
     sources: List[dict]
     confidence: float
+
+
+class DirectQueryResponse(BaseModel):
+    answer: str
 
 
 class Document(BaseModel):
@@ -196,6 +200,30 @@ async def query_documents(request: QueryRequest):
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
 
 
+@app.post("/query-direct", response_model=DirectQueryResponse)
+async def query_direct(request: QueryRequest):
+    """Direct LLM query without RAG - for comparison purposes"""
+    logger.info(f"Received direct query request: {request.query}")
+    try:
+        # Generate direct LLM response without retrieval
+        answer = await llm_service.generate_direct_response(
+            query=request.query,
+            model=request.model,
+        )
+
+        return DirectQueryResponse(answer=answer)
+
+    except Exception as e:
+        logger.error(f"Error in /query-direct endpoint: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500, detail=f"Error processing direct query: {str(e)}"
+        )
+
+
 @app.get("/documents", response_model=List[Document])
 async def list_documents():
     try:
@@ -288,4 +316,4 @@ if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
