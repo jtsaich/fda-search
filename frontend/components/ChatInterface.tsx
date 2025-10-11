@@ -59,36 +59,23 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
       const endpoint = useRAG ? "/query" : "/query-direct";
 
-      // Prepare FormData if there are files
-      let requestBody: string | FormData;
-      const headers: HeadersInit = {};
+      // Always use FormData (works with or without files)
+      const formData = new FormData();
+      formData.append("query", text);
+      formData.append("model", selectedModel);
+      formData.append("use_system_prompt", useSystemPrompt.toString());
 
+      // Append all files if present
       if (files && files.length > 0) {
-        const formData = new FormData();
-        formData.append("query", text);
-        formData.append("model", selectedModel);
-        formData.append("use_system_prompt", useSystemPrompt.toString());
-
-        // Append all files
         Array.from(files).forEach((file) => {
           formData.append("files", file);
-        });
-
-        requestBody = formData;
-        // Don't set Content-Type - browser will set it with boundary
-      } else {
-        headers["Content-Type"] = "application/json";
-        requestBody = JSON.stringify({
-          query: text,
-          model: selectedModel,
-          use_system_prompt: useSystemPrompt,
         });
       }
 
       const response = await fetch(`${backendUrl}${endpoint}`, {
         method: "POST",
-        headers,
-        body: requestBody,
+        body: formData,
+        // Don't set Content-Type - browser will set it with boundary
       });
 
       const responseData = await response.json();
