@@ -10,10 +10,10 @@ type TabType = "chat" | "upload" | "documents";
 
 const models = [
   { id: "google/gemma-3-27b-it:free", name: "Gemma 3 27B (Free)" },
-  { id: "meta-llama/llama-3.2-3b-instruct:free", name: "Llama 3.2 3B (Free)" },
-  { id: "anthropic/claude-3-haiku:beta", name: "Claude 3 Haiku" },
-  { id: "openai/gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
-  { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
+  // { id: "meta-llama/llama-3.2-3b-instruct:free", name: "Llama 3.2 3B (Free)" },
+  // { id: "anthropic/claude-3-haiku:beta", name: "Claude 3 Haiku" },
+  // { id: "openai/gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
+  // { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
 ];
 
 export default function Home() {
