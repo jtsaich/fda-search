@@ -78,7 +78,7 @@ PINECONE_INDEX_NAME=fda-documents
 2. **Vector Search**: Uses Pinecone with 384-dimensional embeddings, retrieves top 5 chunks
 3. **API Endpoints**:
    - `POST /upload` - Document upload and processing
-   - `POST /query` - RAG queries with source attribution
+   - `POST /api/chat` - Chatting server stream event
    - `GET /documents` - List documents
    - `DELETE /documents/{id}` - Remove documents
 

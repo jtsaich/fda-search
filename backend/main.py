@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -156,116 +156,6 @@ async def upload_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 
-@app.post("/query", response_model=QueryResponse)
-async def query_documents(
-    query: str = Form(...),
-    model: str = Form("google/gemma-3-27b-it:free"),
-    max_results: int = Form(5),
-    use_system_prompt: bool = Form(True),
-    files: List[UploadFile] = File(default=[]),
-):
-    logger.info(f"Received query request: {query}")
-    logger.info(f"Attached files: {len(files)}")
-
-    # Save attached files temporarily and prepare for LLM
-    attached_files_info = []
-    temp_file_paths = []
-
-    if files:
-        uploads_dir = Path("uploads")
-        uploads_dir.mkdir(exist_ok=True)
-
-        for file in files:
-            logger.info(f"Processing attached file: {file.filename}")
-
-            # Save file temporarily
-            temp_path = uploads_dir / f"temp_{file.filename}"
-            with open(temp_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-
-            temp_file_paths.append(temp_path)
-            attached_files_info.append(
-                {
-                    "path": str(temp_path),
-                    "filename": file.filename,
-                }
-            )
-
-    try:
-        # Generate embedding for the query
-        logger.info("Generating embedding for query...")
-        query_embedding = await embedding_service.generate_embedding(query)
-        logger.info(f"Generated embedding with dimension: {len(query_embedding)}")
-
-        # Search for similar chunks in Pinecone
-        logger.info("Searching for similar chunks in Pinecone...")
-        similar_chunks = await vector_service.search_similar(
-            query_embedding, top_k=max_results
-        )
-        logger.info(f"Found {len(similar_chunks)} similar chunks")
-
-        # Extract source information
-        sources = []
-        context_chunks = []
-
-        for chunk in similar_chunks:
-            metadata = chunk.get("metadata", {})
-            sources.append(
-                {
-                    "document_id": metadata.get("document_id", "unknown"),
-                    "filename": metadata.get("filename", "unknown"),
-                    "chunk_text": metadata.get("text", "")[:200] + "...",
-                    "similarity_score": chunk.get("score", 0.0),
-                    "chunk_index": metadata.get("chunk_index", 0),
-                }
-            )
-            context_chunks.append(metadata.get("text", ""))
-
-        # Check if we have relevant context
-        if not context_chunks:
-            return QueryResponse(
-                answer="I couldn't find any relevant information in the uploaded documents for your query.",
-                sources=[],
-                confidence=0.0,
-            )
-
-        # Try to generate LLM response, fallback to context if LLM fails
-        try:
-            answer = await llm_service.generate_rag_response(
-                query=query,
-                context_chunks=context_chunks,
-                sources=sources,
-                model=model,
-                attached_files=attached_files_info if attached_files_info else None,
-                use_system_prompt=use_system_prompt,
-            )
-        except Exception as llm_error:
-            logger.error(f"LLM service error in /query endpoint: {llm_error}")
-            # Fallback to returning the context directly
-            answer = f"Based on the documents, here's the relevant information:\n\n{context_chunks[0][:500]}..."
-            if len(sources) > 0:
-                answer += f"\n\nSource: {sources[0]['filename']}"
-
-        return QueryResponse(
-            answer=answer,
-            sources=sources,
-            confidence=similar_chunks[0].get("score", 0.0) if similar_chunks else 0.0,
-        )
-
-    except Exception as e:
-        logger.error(f"Error in /query endpoint: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
-        import traceback
-
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
-    finally:
-        # Clean up temporary files
-        for temp_path in temp_file_paths:
-            if temp_path.exists():
-                os.remove(temp_path)
-
-
 @app.post("/api/chat")
 async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
     """
@@ -375,12 +265,20 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                         )
 
                         # Sort by score descending (highest similarity first)
-                        similar_chunks = sorted(similar_chunks, key=lambda x: x.get('score', 0), reverse=True)
+                        similar_chunks = sorted(
+                            similar_chunks,
+                            key=lambda x: x.get("score", 0),
+                            reverse=True,
+                        )
 
-                        logger.info(f"Found {len(similar_chunks)} similar chunks (sorted by score)")
+                        logger.info(
+                            f"Found {len(similar_chunks)} similar chunks (sorted by score)"
+                        )
                         for i, chunk in enumerate(similar_chunks):
-                            metadata = chunk.get('metadata', {})
-                            logger.info(f"Chunk {i+1}: score={chunk.get('score', 0):.4f}, filename={metadata.get('filename', 'unknown')}, text preview={metadata.get('text', '')[:100]}...")
+                            metadata = chunk.get("metadata", {})
+                            logger.info(
+                                f"Chunk {i+1}: score={chunk.get('score', 0):.4f}, filename={metadata.get('filename', 'unknown')}, text preview={metadata.get('text', '')[:100]}..."
+                            )
 
                         # Add context to system message if we found relevant chunks
                         if similar_chunks:
@@ -516,7 +414,7 @@ async def recreate_pinecone_index():
             "message": "Index recreated successfully",
             "index_name": index_name,
             "dimension": 768,
-            "note": "Please re-upload all documents"
+            "note": "Please re-upload all documents",
         }
     except Exception as e:
         logger.error(f"Error recreating index: {str(e)}")
