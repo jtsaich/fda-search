@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChatInterface } from "@/components/ChatInterface";
+import { ChatInterface } from "@/components/ChatInterfaceNew";
 import { DocumentUpload } from "@/components/DocumentUpload";
 import { DocumentList } from "@/components/DocumentList";
 import { MessageSquare, Upload, FileText, ChevronDown } from "lucide-react";

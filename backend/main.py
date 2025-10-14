@@ -1,5 +1,7 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 from typing import List, Optional
 import os
@@ -12,16 +14,18 @@ from services.document_service import DocumentService
 from services.vector_service import VectorService
 from services.embedding_service import EmbeddingService
 from services.llm_service import LLMService
+from services.chat_protocol import (
+    ChatRequest,
+    stream_text,
+)
 
 # Configure logging to use stdout instead of stderr
 import sys
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
 
@@ -35,6 +39,20 @@ llm_service = LLMService()
 
 app = FastAPI(title="FDA RAG API", version="1.0.0")
 
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Log detailed validation errors to help debug 422 errors"""
+    logger.error(f"Validation error for {request.url}")
+    body = await request.body()
+    logger.error(f"Request body: {body.decode() if body else 'empty'}")
+    logger.error(f"Validation errors: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -44,6 +62,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["x-vercel-ai-data-stream"],
 )
 
 
@@ -307,6 +326,150 @@ async def query_direct(
         for temp_path in temp_file_paths:
             if temp_path.exists():
                 os.remove(temp_path)
+
+
+@app.post("/api/chat")
+async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
+    """
+    Streaming chat endpoint compatible with Vercel AI SDK
+    Supports conversation history and RAG integration
+    """
+    logger.info(
+        f"Received streaming chat request with {len(request.messages)} messages"
+    )
+    logger.info(
+        f"RAG enabled: {request.use_rag}, System prompt: {request.use_system_prompt}"
+    )
+
+    try:
+        # Convert AI SDK messages to OpenRouter format
+        openai_messages = []
+
+        # Add system prompt if enabled
+        if request.use_system_prompt:
+            if request.use_rag:
+                system_prompt = "You are a helpful FDA regulatory assistant with access to a knowledge base. Provide accurate, concise responses based on the context provided."
+            else:
+                system_prompt = "You are a helpful FDA regulatory assistant. You have general knowledge about FDA regulations, processes, and guidelines."
+
+            openai_messages.append({"role": "system", "content": system_prompt})
+
+        # Process conversation history
+        for msg in request.messages:
+            content_parts = []
+
+            # Extract text content from either content field or parts array
+            text_content = msg.get_text_content()
+            if text_content:
+                content_parts.append({"type": "text", "text": text_content})
+
+            # Handle file attachments from parts (AI SDK sends files in parts)
+            if msg.parts:
+                for part in msg.parts:
+                    if part.get("type") == "file":
+                        mime_type = part.get("mimeType", "")
+                        if mime_type.startswith("image/"):
+                            content_parts.append(
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": part.get("url", "")},
+                                }
+                            )
+
+            # Handle file attachments from experimental_attachments (fallback)
+            if msg.experimental_attachments:
+                for attachment in msg.experimental_attachments:
+                    if attachment.get("contentType", "").startswith("image/"):
+                        content_parts.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": attachment.get("url", "")},
+                            }
+                        )
+
+            openai_messages.append(
+                {
+                    "role": msg.role,
+                    "content": (
+                        content_parts if len(content_parts) > 1 else text_content
+                    ),
+                }
+            )
+
+        # If RAG is enabled, get context for the last user message
+        if request.use_rag and request.messages:
+            last_user_message = next(
+                (msg for msg in reversed(request.messages) if msg.role == "user"), None
+            )
+
+            if last_user_message:
+                query_text = last_user_message.get_text_content()
+                if query_text:
+                    try:
+                        # Generate embedding and search
+                        query_embedding = await embedding_service.generate_embedding(
+                            query_text
+                        )
+                        similar_chunks = await vector_service.search_similar(
+                            query_embedding, top_k=3
+                        )
+
+                        # Add context to system message if we found relevant chunks
+                        if similar_chunks:
+                            context = "\n\n".join(
+                                [
+                                    chunk.get("metadata", {}).get("text", "")
+                                    for chunk in similar_chunks[:3]
+                                ]
+                            )
+
+                            # Update or add system message with context
+                            context_addition = (
+                                f"\n\nRelevant context from knowledge base:\n{context}"
+                            )
+                            if (
+                                openai_messages
+                                and openai_messages[0]["role"] == "system"
+                            ):
+                                openai_messages[0]["content"] += context_addition
+                            else:
+                                openai_messages.insert(
+                                    0,
+                                    {
+                                        "role": "system",
+                                        "content": f"Context from knowledge base:{context_addition}",
+                                    },
+                                )
+
+                    except Exception as e:
+                        logger.warning(f"RAG retrieval failed: {str(e)}")
+
+        response = StreamingResponse(
+            stream_text(
+                llm_service.client,
+                openai_messages,
+                request.model or "google/gemma-3-27b-it:free",
+                0.7 if not request.use_rag else 0.1,
+            ),
+            media_type="text/event-stream",
+        )
+        response.headers["x-vercel-ai-data-stream"] = "v1"
+
+        # Required headers for SSE streaming
+        response.headers["Cache-Control"] = "no-cache"
+        response.headers["Connection"] = "keep-alive"
+        response.headers["X-Accel-Buffering"] = (
+            "no"  # Disable buffering in nginx/proxies
+        )
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Error in streaming chat: {str(e)}")
+        import traceback
+
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/documents", response_model=List[Document])

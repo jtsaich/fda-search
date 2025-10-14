@@ -141,9 +141,7 @@ The user's question is: {query}"""
                 content.append(
                     {
                         "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime_type};base64,{base64_data}"
-                        },
+                        "image_url": {"url": f"data:{mime_type};base64,{base64_data}"},
                     }
                 )
             elif mime_type == "application/pdf":
@@ -173,7 +171,11 @@ The user's question is: {query}"""
         return content
 
     async def generate_direct_response(
-        self, query: str, model: Optional[str] = None, attached_files: Optional[List[Dict[str, Any]]] = None, use_system_prompt: bool = True
+        self,
+        query: str,
+        model: Optional[str] = None,
+        attached_files: Optional[List[Dict[str, Any]]] = None,
+        use_system_prompt: bool = True,
     ) -> str:
         """Generate direct LLM response without RAG context"""
         if not self.client:
