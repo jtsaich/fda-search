@@ -358,40 +358,60 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
         for msg in request.messages:
             content_parts = []
 
-            # Extract text content from either content field or parts array
-            text_content = msg.get_text_content()
-            if text_content:
-                content_parts.append({"type": "text", "text": text_content})
-
             # Handle file attachments from parts (AI SDK sends files in parts)
             if msg.parts:
                 for part in msg.parts:
-                    if part.get("type") == "file":
-                        mime_type = part.get("mimeType", "")
-                        if mime_type.startswith("image/"):
+                    part_type = part.get("type")
+
+                    # Handle text parts
+                    if part_type == "text":
+                        text = part.get("text", "")
+                        if text:
+                            content_parts.append({"type": "text", "text": text})
+
+                    # Handle file parts
+                    elif part_type == "file":
+                        media_type = part.get("mediaType", "")
+                        url = part.get("url", "")
+                        filename = part.get("filename", "")
+
+                        if not url:
+                            continue
+
+                        # Handle images using OpenRouter's image_url format
+                        if media_type.startswith("image/"):
                             content_parts.append(
                                 {
                                     "type": "image_url",
-                                    "image_url": {"url": part.get("url", "")},
+                                    "image_url": {"url": url},
                                 }
                             )
 
-            # Handle file attachments from experimental_attachments (fallback)
-            if msg.experimental_attachments:
-                for attachment in msg.experimental_attachments:
-                    if attachment.get("contentType", "").startswith("image/"):
-                        content_parts.append(
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": attachment.get("url", "")},
-                            }
-                        )
+                        # Handle PDFs using OpenRouter's file format
+                        elif media_type == "application/pdf":
+                            content_parts.append(
+                                {
+                                    "type": "file",
+                                    "file": {
+                                        "filename": filename,
+                                        "file_data": url,  # base64 data URL
+                                    }
+                                }
+                            )
 
+            # If no parts, extract text from content field
+            if not content_parts:
+                text_content = msg.get_text_content()
+                if text_content:
+                    content_parts.append({"type": "text", "text": text_content})
+
+            # Build the message
             openai_messages.append(
                 {
                     "role": msg.role,
                     "content": (
-                        content_parts if len(content_parts) > 1 else text_content
+                        content_parts if len(content_parts) > 1 else
+                        (content_parts[0].get("text", "") if content_parts else "")
                     ),
                 }
             )
