@@ -7,9 +7,10 @@ load_dotenv()
 
 class EmbeddingService:
     def __init__(self):
-        # Use a smaller, more memory-efficient model
-        # paraphrase-MiniLM-L3-v2: ~60MB vs all-MiniLM-L6-v2: ~90MB
-        self.model_id = "sentence-transformers/paraphrase-MiniLM-L3-v2"
+        # Use all-mpnet-base-v2 for better semantic search quality
+        # all-mpnet-base-v2: 768 dim, ~420MB - best quality for general use
+        # Provides significantly better retrieval accuracy than smaller models
+        self.model_id = "sentence-transformers/all-mpnet-base-v2"
         try:
             # Load the model locally for better performance and reliability
             self.model = SentenceTransformer(self.model_id)

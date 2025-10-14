@@ -33,7 +33,7 @@ class VectorService:
             if self.index_name not in existing_indexes:
                 self.pc.create_index(
                     name=self.index_name,
-                    dimension=384,  # all-MiniLM-L6-v2 dimension
+                    dimension=768,  # all-mpnet-base-v2 dimension
                     metric="cosine",
                     spec={"serverless": {"cloud": "aws", "region": "us-east-1"}},
                 )

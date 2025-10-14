@@ -266,68 +266,6 @@ async def query_documents(
                 os.remove(temp_path)
 
 
-@app.post("/query-direct", response_model=DirectQueryResponse)
-async def query_direct(
-    query: str = Form(...),
-    model: str = Form("google/gemma-3-27b-it:free"),
-    use_system_prompt: bool = Form(True),
-    files: List[UploadFile] = File(default=[]),
-):
-    """Direct LLM query without RAG - for comparison purposes"""
-    logger.info(f"Received direct query request: {query}")
-    logger.info(f"Attached files: {len(files)}")
-
-    # Save attached files temporarily and prepare for LLM
-    attached_files_info = []
-    temp_file_paths = []
-
-    if files:
-        uploads_dir = Path("uploads")
-        uploads_dir.mkdir(exist_ok=True)
-
-        for file in files:
-            logger.info(f"Processing attached file: {file.filename}")
-
-            # Save file temporarily
-            temp_path = uploads_dir / f"temp_{file.filename}"
-            with open(temp_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-
-            temp_file_paths.append(temp_path)
-            attached_files_info.append(
-                {
-                    "path": str(temp_path),
-                    "filename": file.filename,
-                }
-            )
-
-    try:
-        # Generate direct LLM response without retrieval
-        answer = await llm_service.generate_direct_response(
-            query=query,
-            model=model,
-            attached_files=attached_files_info if attached_files_info else None,
-            use_system_prompt=use_system_prompt,
-        )
-
-        return DirectQueryResponse(answer=answer)
-
-    except Exception as e:
-        logger.error(f"Error in /query-direct endpoint: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
-        import traceback
-
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=500, detail=f"Error processing direct query: {str(e)}"
-        )
-    finally:
-        # Clean up temporary files
-        for temp_path in temp_file_paths:
-            if temp_path.exists():
-                os.remove(temp_path)
-
-
 @app.post("/api/chat")
 async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
     """
@@ -395,7 +333,7 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                                     "file": {
                                         "filename": filename,
                                         "file_data": url,  # base64 data URL
-                                    }
+                                    },
                                 }
                             )
 
@@ -410,8 +348,9 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                 {
                     "role": msg.role,
                     "content": (
-                        content_parts if len(content_parts) > 1 else
-                        (content_parts[0].get("text", "") if content_parts else "")
+                        content_parts
+                        if len(content_parts) > 1
+                        else (content_parts[0].get("text", "") if content_parts else "")
                     ),
                 }
             )
@@ -426,13 +365,22 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                 query_text = last_user_message.get_text_content()
                 if query_text:
                     try:
+                        logger.info(f"RAG Query: {query_text}")
                         # Generate embedding and search
                         query_embedding = await embedding_service.generate_embedding(
                             query_text
                         )
                         similar_chunks = await vector_service.search_similar(
-                            query_embedding, top_k=3
+                            query_embedding, top_k=10
                         )
+
+                        # Sort by score descending (highest similarity first)
+                        similar_chunks = sorted(similar_chunks, key=lambda x: x.get('score', 0), reverse=True)
+
+                        logger.info(f"Found {len(similar_chunks)} similar chunks (sorted by score)")
+                        for i, chunk in enumerate(similar_chunks):
+                            metadata = chunk.get('metadata', {})
+                            logger.info(f"Chunk {i+1}: score={chunk.get('score', 0):.4f}, filename={metadata.get('filename', 'unknown')}, text preview={metadata.get('text', '')[:100]}...")
 
                         # Add context to system message if we found relevant chunks
                         if similar_chunks:
@@ -535,6 +483,44 @@ async def delete_document(document_id: str):
         raise HTTPException(
             status_code=500, detail=f"Error deleting document: {str(e)}"
         )
+
+
+@app.post("/admin/recreate-index")
+async def recreate_pinecone_index():
+    """Delete and recreate Pinecone index (USE WITH CAUTION - deletes all vectors!)"""
+    try:
+        if not vector_service.pc:
+            raise HTTPException(status_code=500, detail="Pinecone not configured")
+
+        index_name = vector_service.index_name
+
+        # Delete existing index if it exists
+        existing_indexes = [index["name"] for index in vector_service.pc.list_indexes()]
+        if index_name in existing_indexes:
+            vector_service.pc.delete_index(index_name)
+            logger.info(f"Deleted existing index: {index_name}")
+
+        # Create new index with 768 dimensions
+        vector_service.pc.create_index(
+            name=index_name,
+            dimension=768,
+            metric="cosine",
+            spec={"serverless": {"cloud": "aws", "region": "us-east-1"}},
+        )
+
+        # Reconnect to the new index
+        vector_service.index = vector_service.pc.Index(index_name)
+
+        logger.info(f"Created new index: {index_name} with 768 dimensions")
+        return {
+            "message": "Index recreated successfully",
+            "index_name": index_name,
+            "dimension": 768,
+            "note": "Please re-upload all documents"
+        }
+    except Exception as e:
+        logger.error(f"Error recreating index: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/health/pinecone")
