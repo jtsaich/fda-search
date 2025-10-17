@@ -104,7 +104,7 @@ class VectorService:
             # Query all vectors to get metadata (this is a simple approach)
             # For large datasets, you'd want to implement a proper document registry
             results = self.index.query(
-                vector=[0.0] * 384,  # Dummy vector
+                vector=[0.0] * 768,  # Dummy vector matching all-mpnet-base-v2 dimension
                 top_k=10000,  # Large number to get all vectors
                 include_metadata=True,
                 include_values=False,
