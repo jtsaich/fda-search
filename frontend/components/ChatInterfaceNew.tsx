@@ -19,6 +19,16 @@ interface ChatInterfaceProps {
   selectedModel: string;
 }
 
+// Matches the AI SDK SourceDocumentUIPart providerMetadata structure
+interface SourceMetadata {
+  rag: {
+    chunk_index: number;
+    score: number;
+    text: string;
+    document_id: string;
+  };
+}
+
 export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
   const [useRAG, setUseRAG] = useState(true);
   const [useSystemPrompt, setUseSystemPrompt] = useState(true);
@@ -162,19 +172,54 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
                 >
                   {message.role === "assistant" ? (
                     <>
-                      {message.parts.map((part, idx) => {
-                        if (part.type === "text") {
-                          return (
-                            <ReactMarkdown
-                              key={idx}
-                              remarkPlugins={[remarkGfm]}
-                            >
-                              {part.text}
-                            </ReactMarkdown>
-                          );
-                        }
-                        return null;
-                      })}
+                      {/* Render text content */}
+                      {message.parts
+                        .filter((part) => part.type === "text")
+                        .map((part, idx) => (
+                          <ReactMarkdown key={idx} remarkPlugins={[remarkGfm]}>
+                            {part.text}
+                          </ReactMarkdown>
+                        ))}
+
+                      {/* Render source-document parts */}
+                      {message.parts.filter(
+                        (part) => part.type === "source-document"
+                      ).length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-gray-300">
+                          <div className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
+                            <BookOpen className="h-3 w-3" />
+                            Sources Referenced:
+                          </div>
+                          <div className="space-y-2">
+                            {message.parts
+                              .filter((part) => part.type === "source-document")
+                              .map((part, idx) => {
+                                // AI SDK SourceDocumentUIPart
+                                if (part.type !== "source-document") return null;
+                                const metadata = part.providerMetadata as SourceMetadata | undefined;
+                                const rag = metadata?.rag;
+                                return (
+                                  <details
+                                    key={idx}
+                                    className="text-xs bg-blue-50 rounded p-2 border border-blue-200"
+                                  >
+                                    <summary className="cursor-pointer font-medium text-blue-700 hover:text-blue-900">
+                                      {part.title} - Score: {rag?.score ?? 0}
+                                    </summary>
+                                    <div className="mt-2 space-y-1">
+                                      <div className="text-gray-600">
+                                        <span className="font-semibold">File:</span> {part.filename}
+                                      </div>
+                                      <div className="text-gray-700 whitespace-pre-wrap border-t pt-2">
+                                        {rag?.text || 'No content available'}
+                                      </div>
+                                    </div>
+                                  </details>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <>

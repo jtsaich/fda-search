@@ -246,6 +246,7 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
             )
 
         # If RAG is enabled, get context for the last user message
+        rag_sources = []
         if request.use_rag and request.messages:
             last_user_message = next(
                 (msg for msg in reversed(request.messages) if msg.role == "user"), None
@@ -282,6 +283,18 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
 
                         # Add context to system message if we found relevant chunks
                         if similar_chunks:
+                            # Prepare sources for the frontend
+                            for i, chunk in enumerate(similar_chunks[:3]):
+                                metadata = chunk.get("metadata", {})
+                                rag_sources.append({
+                                    "type": "document",
+                                    "id": chunk.get("id"),
+                                    "filename": metadata.get("filename", "Unknown"),
+                                    "chunk_index": metadata.get("chunk_index", 0),
+                                    "score": round(chunk.get("score", 0), 4),
+                                    "text": metadata.get("text", "")[:500],  # Truncate for source display
+                                })
+
                             context = "\n\n".join(
                                 [
                                     chunk.get("metadata", {}).get("text", "")
@@ -316,6 +329,7 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                 openai_messages,
                 request.model or "google/gemma-3-27b-it:free",
                 0.7 if not request.use_rag else 0.1,
+                sources=rag_sources if rag_sources else None,
             ),
             media_type="text/event-stream",
         )

@@ -72,6 +72,7 @@ def stream_text(
     model: str,
     temperature: float = 0.7,
     protocol: str = "data",
+    sources: Optional[List[Dict[str, Any]]] = None,
 ):
     """
     Stream response from OpenRouter using AI SDK v5 SSE (Server-Sent Events) format
@@ -110,6 +111,31 @@ def stream_text(
         finish_reason = None
 
         try:
+            # Send source-document parts BEFORE text starts (if provided)
+            # Following AI SDK SourceDocumentUIPart structure
+            # providerMetadata must be Record<string, any> where values are JSON-serializable
+            if sources:
+                for source in sources:
+                    source_id = str(uuid.uuid4())
+                    data = json.dumps(
+                        {
+                            "type": "source-document",
+                            "sourceId": source_id,
+                            "mediaType": "text/plain",
+                            "title": f"{source.get('filename', 'Unknown')} - Chunk {source.get('chunk_index', 0) + 1}",
+                            "filename": source.get("filename", "Unknown"),
+                            "providerMetadata": {
+                                "rag": {
+                                    "chunk_index": source.get("chunk_index", 0),
+                                    "score": source.get("score", 0),
+                                    "text": source.get("text", ""),
+                                    "document_id": source.get("id", ""),
+                                }
+                            },
+                        }
+                    )
+                    yield f"data: {data}\n\n"
+
             for chunk in stream:
                 if not chunk.choices or len(chunk.choices) == 0:
                     continue
