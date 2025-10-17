@@ -7,7 +7,7 @@ Frontend (Next.js + React)     Backend (FastAPI + Python)     External Services
 ├── Chat Interface             ├── Document Upload API         ├── HuggingFace (Embeddings)
 ├── Document Upload UI         ├── RAG Query API               ├── OpenRouter (LLM)
 ├── Document Management        ├── Vector Search               └── Pinecone/Weaviate (Vector DB)
-└── Settings Panel             └── Document Processing         
+└── Settings Panel             └── Document Processing
 ```
 
 ## Stack Decisions
@@ -120,19 +120,19 @@ async def upload_documents(files: List[UploadFile] = File(...)):
         for file in files:
             # Save file
             file_path = await document_service.save_file(file)
-            
+
             # Process and create embeddings
             chunks = await document_service.process_document(file_path)
             vector_ids = await rag_service.create_embeddings(chunks, file.filename)
-            
+
             results.append({
                 "filename": file.filename,
                 "chunks_created": len(chunks),
                 "vectors_stored": len(vector_ids)
             })
-        
+
         return {"success": True, "results": results}
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -144,13 +144,13 @@ async def chat(message: ChatMessage):
             question=message.message,
             conversation_id=message.conversation_id
         )
-        
+
         return ChatResponse(
             response=response["answer"],
             sources=response["sources"],
             conversation_id=response["conversation_id"]
         )
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -197,23 +197,23 @@ class DocumentService:
         self.upload_dir.mkdir(exist_ok=True)
         self.chunk_size = 1000
         self.chunk_overlap = 200
-    
+
     async def save_file(self, file: UploadFile) -> str:
         """Save uploaded file to disk"""
         file_id = str(uuid.uuid4())
         file_extension = Path(file.filename).suffix
         file_path = self.upload_dir / f"{file_id}{file_extension}"
-        
+
         content = await file.read()
         with open(file_path, "wb") as f:
             f.write(content)
-        
+
         return str(file_path)
-    
+
     async def process_document(self, file_path: str) -> List[Dict]:
         """Process document into chunks"""
         file_path = Path(file_path)
-        
+
         # Extract text based on file type
         if file_path.suffix.lower() == '.pdf':
             text = self._extract_pdf_text(file_path)
@@ -223,13 +223,13 @@ class DocumentService:
             text = self._extract_docx_text(file_path)
         else:
             raise ValueError(f"Unsupported file type: {file_path.suffix}")
-        
+
         # Clean and chunk text
         cleaned_text = self._clean_text(text)
         chunks = self._create_chunks(cleaned_text, file_path.stem)
-        
+
         return chunks
-    
+
     def _extract_pdf_text(self, file_path: Path) -> str:
         """Extract text from PDF"""
         text = ""
@@ -238,12 +238,12 @@ class DocumentService:
             for page in pdf_reader.pages:
                 text += page.extract_text() + "\n"
         return text
-    
+
     def _extract_text_file(self, file_path: Path) -> str:
         """Extract text from text file"""
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
-    
+
     def _extract_docx_text(self, file_path: Path) -> str:
         """Extract text from DOCX file"""
         doc = DocxDocument(file_path)
@@ -251,7 +251,7 @@ class DocumentService:
         for paragraph in doc.paragraphs:
             text += paragraph.text + "\n"
         return text
-    
+
     def _clean_text(self, text: str) -> str:
         """Clean and normalize text"""
         # Remove excessive whitespace
@@ -259,19 +259,19 @@ class DocumentService:
         # Remove page numbers
         text = re.sub(r'Page \d+ of \d+', '', text)
         return text.strip()
-    
+
     def _create_chunks(self, text: str, document_name: str) -> List[Dict]:
         """Create overlapping chunks"""
         words = text.split()
         chunks = []
-        
+
         words_per_chunk = self.chunk_size // 6  # ~6 chars per word
         overlap_words = self.chunk_overlap // 6
-        
+
         for i in range(0, len(words), words_per_chunk - overlap_words):
             chunk_words = words[i:i + words_per_chunk]
             chunk_text = ' '.join(chunk_words)
-            
+
             if chunk_text.strip():
                 chunks.append({
                     "text": chunk_text,
@@ -282,9 +282,9 @@ class DocumentService:
                         "chunk_index": i // (words_per_chunk - overlap_words)
                     }
                 })
-        
+
         return chunks
-    
+
     async def list_documents(self) -> List[Dict]:
         """List all uploaded documents"""
         documents = []
@@ -297,7 +297,7 @@ class DocumentService:
                     "type": file_path.suffix
                 })
         return documents
-    
+
     async def delete_document(self, filename: str):
         """Delete a document file"""
         for file_path in self.upload_dir.glob(f"{filename}*"):
@@ -323,37 +323,37 @@ class RAGService:
             environment=os.getenv("PINECONE_ENVIRONMENT")
         )
         self.index_name = os.getenv("PINECONE_INDEX_NAME")
-        
+
         # Create index if it doesn't exist
         if self.index_name not in pinecone.list_indexes():
             pinecone.create_index(
                 name=self.index_name,
-                dimension=384,  # all-MiniLM-L6-v2 dimension
+                dimension=768,  # all-mpnet-base-v2 dimension
                 metric="cosine"
             )
-        
+
         self.index = pinecone.Index(self.index_name)
-        
+
         # HuggingFace API setup
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         self.hf_model = "sentence-transformers/all-MiniLM-L6-v2"
-        
+
         # OpenRouter setup
         openai.api_key = os.getenv("OPENROUTER_API_KEY")
         openai.api_base = "https://openrouter.ai/api/v1"
-        
+
         self.conversations = {}  # Simple in-memory storage
-    
+
     async def create_embeddings(self, chunks: List[Dict], document_name: str) -> List[str]:
         """Create embeddings and store in Pinecone"""
         vectors_to_upsert = []
-        
+
         for chunk in chunks:
             # Get embedding from HuggingFace
             embedding = await self._get_embedding(chunk["text"])
-            
+
             vector_id = f"{document_name}_{chunk['chunk_id']}"
-            
+
             vectors_to_upsert.append({
                 "id": vector_id,
                 "values": embedding,
@@ -364,56 +364,56 @@ class RAGService:
                     **chunk["metadata"]
                 }
             })
-        
+
         # Upsert to Pinecone in batches
         batch_size = 100
         for i in range(0, len(vectors_to_upsert), batch_size):
             batch = vectors_to_upsert[i:i + batch_size]
             self.index.upsert(vectors=batch)
-        
+
         return [v["id"] for v in vectors_to_upsert]
-    
+
     async def _get_embedding(self, text: str) -> List[float]:
         """Get embedding from HuggingFace API"""
         headers = {
             "Authorization": f"Bearer {self.hf_api_key}",
             "Content-Type": "application/json"
         }
-        
+
         response = requests.post(
             f"https://api-inference.huggingface.co/pipeline/feature-extraction/{self.hf_model}",
             headers=headers,
             json={"inputs": text}
         )
-        
+
         if response.status_code == 200:
             return response.json()[0]  # Return the embedding vector
         else:
             raise Exception(f"HuggingFace API error: {response.text}")
-    
+
     async def query(self, question: str, conversation_id: Optional[str] = None, top_k: int = 5) -> Dict:
         """Query the RAG system"""
-        
+
         # Get conversation history
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
-        
+
         conversation = self.conversations.get(conversation_id, [])
-        
+
         # Get question embedding
         question_embedding = await self._get_embedding(question)
-        
+
         # Search Pinecone for relevant chunks
         search_results = self.index.query(
             vector=question_embedding,
             top_k=top_k,
             include_metadata=True
         )
-        
+
         # Extract context and sources
         context_chunks = []
         sources = []
-        
+
         for match in search_results["matches"]:
             context_chunks.append(match["metadata"]["text"])
             sources.append({
@@ -421,32 +421,32 @@ class RAGService:
                 "score": float(match["score"]),
                 "text_preview": match["metadata"]["text"][:200] + "..."
             })
-        
+
         # Combine context
         context = "\n\n".join(context_chunks)
-        
+
         # Generate answer using OpenRouter
         answer = await self._generate_answer(question, context, conversation)
-        
+
         # Update conversation history
         conversation.append({"question": question, "answer": answer})
         self.conversations[conversation_id] = conversation[-10:]  # Keep last 10 exchanges
-        
+
         return {
             "answer": answer,
             "sources": sources,
             "conversation_id": conversation_id
         }
-    
+
     async def _generate_answer(self, question: str, context: str, conversation: List[Dict]) -> str:
         """Generate answer using OpenRouter"""
-        
+
         # Build conversation context
         conversation_context = ""
         for exchange in conversation[-3:]:  # Last 3 exchanges
             conversation_context += f"Q: {exchange['question']}\nA: {exchange['answer']}\n\n"
-        
-        system_prompt = """You are an FDA regulatory expert assistant. Use the provided FDA document context to answer questions accurately and helpfully. 
+
+        system_prompt = """You are an FDA regulatory expert assistant. Use the provided FDA document context to answer questions accurately and helpfully.
 
 IMPORTANT:
 - Only use information from the provided context
@@ -475,17 +475,17 @@ Please provide a comprehensive answer based on the FDA document context above.""
                 max_tokens=1000,
                 temperature=0.1
             )
-            
+
             answer = response.choices[0].message.content
-            
+
             # Add compliance disclaimer
             disclaimer = "\n\n⚠️ This information is for educational purposes only. Always consult official FDA resources and qualified regulatory professionals for compliance matters."
-            
+
             return answer + disclaimer
-            
+
         except Exception as e:
             return f"I apologize, but I encountered an error generating a response: {str(e)}"
-    
+
     async def delete_document_embeddings(self, document_name: str):
         """Delete all embeddings for a document"""
         # This is a simplified approach - in production you'd want better indexing
@@ -623,13 +623,13 @@ export default function RootLayout({
                   </h1>
                 </div>
                 <div className="flex items-center space-x-4">
-                  <Link 
+                  <Link
                     href="/"
                     className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
                   >
                     Chat
                   </Link>
-                  <Link 
+                  <Link
                     href="/upload"
                     className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
                   >
@@ -830,7 +830,7 @@ export default function DocumentUpload() {
 
     try {
       const result = await chatAPI.uploadDocuments(acceptedFiles)
-      
+
       setUploadStatus({
         type: 'success',
         message: `Successfully uploaded ${acceptedFiles.length} document(s)`
@@ -894,7 +894,7 @@ export default function DocumentUpload() {
       {/* Upload Area */}
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h2 className="text-xl font-semibold mb-4">Upload FDA Documents</h2>
-        
+
         <div
           {...getRootProps()}
           className={`
@@ -904,9 +904,9 @@ export default function DocumentUpload() {
           `}
         >
           <input {...getInputProps()} disabled={isUploading} />
-          
+
           <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          
+
           {isDragActive ? (
             <p className="text-blue-600">Drop the files here...</p>
           ) : (
@@ -919,7 +919,7 @@ export default function DocumentUpload() {
               </p>
             </div>
           )}
-          
+
           {isUploading && (
             <div className="mt-4">
               <div className="inline-flex items-center space-x-2">
@@ -949,7 +949,7 @@ export default function DocumentUpload() {
       {/* Document List */}
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h3 className="text-lg font-semibold mb-4">Uploaded Documents</h3>
-        
+
         {documents.length === 0 ? (
           <p className="text-gray-500 text-center py-8">
             No documents uploaded yet. Upload some FDA documents to get started.
@@ -967,7 +967,7 @@ export default function DocumentUpload() {
                     </p>
                   </div>
                 </div>
-                
+
                 <button
                   onClick={() => deleteDocument(doc.filename)}
                   className="text-red-500 hover:text-red-700 p-1"
@@ -1005,8 +1005,8 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
       <div className={`
         max-w-3xl px-4 py-2 rounded-lg
-        ${message.type === 'user' 
-          ? 'bg-blue-500 text-white' 
+        ${message.type === 'user'
+          ? 'bg-blue-500 text-white'
           : 'bg-gray-100 text-gray-900'
         }
       `}>
@@ -1106,7 +1106,7 @@ npm install @radix-ui/react-dialog @radix-ui/react-tabs @radix-ui/react-button l
 Get these API keys (most have free tiers):
 
 1. **HuggingFace**: https://huggingface.co/settings/tokens
-2. **OpenRouter**: https://openrouter.ai/keys  
+2. **OpenRouter**: https://openrouter.ai/keys
 3. **Pinecone**: https://app.pinecone.io/ (free tier: 1M vectors)
 
 ### 3.3 Quick Start Commands
@@ -1116,7 +1116,7 @@ Get these API keys (most have free tiers):
 cd backend
 python main.py
 
-# Terminal 2 - Frontend  
+# Terminal 2 - Frontend
 cd frontend
 npm run dev
 ```
@@ -1131,7 +1131,7 @@ npm run dev
 
 ### Immediate Improvements
 - Add user authentication
-- Implement conversation persistence  
+- Implement conversation persistence
 - Add document preview functionality
 - Improve error handling and loading states
 

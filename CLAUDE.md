@@ -75,7 +75,7 @@ PINECONE_INDEX_NAME=fda-documents
 ## Key Implementation Details
 
 1. **Document Processing**: Handles PDF, TXT, DOCX files with chunking (512 tokens, 50 overlap)
-2. **Vector Search**: Uses Pinecone with 384-dimensional embeddings, retrieves top 5 chunks
+2. **Vector Search**: Uses Pinecone with 768-dimensional embeddings, retrieves top 5 chunks
 3. **API Endpoints**:
    - `POST /upload` - Document upload and processing
    - `POST /api/chat` - Chatting server stream event
