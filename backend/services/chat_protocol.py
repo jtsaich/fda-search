@@ -108,7 +108,6 @@ def stream_text(
     elif protocol == "data":
         text_id = str(uuid.uuid4())
         text_started = False
-        finish_reason = None
 
         try:
             # Send source-document parts BEFORE text starts (if provided)
@@ -161,6 +160,7 @@ def stream_text(
                     # Capture finish reason
                     if choice.finish_reason:
                         finish_reason = choice.finish_reason
+                        logger.info(f"Stream finished with reason: {finish_reason}")
 
             # Send text-end after all text deltas
             if text_started:
