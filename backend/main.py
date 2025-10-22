@@ -165,22 +165,31 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
     logger.info(
         f"Received streaming chat request with {len(request.messages)} messages"
     )
-    logger.info(
-        f"RAG enabled: {request.use_rag}, System prompt: {request.use_system_prompt}"
-    )
+    logger.info(f"RAG enabled: {request.use_rag}")
 
     try:
         # Convert AI SDK messages to OpenRouter format
         openai_messages = []
 
-        # Add system prompt if enabled
-        if request.use_system_prompt:
-            if request.use_rag:
-                system_prompt = "You are a helpful FDA regulatory assistant with access to a knowledge base. Provide accurate, concise responses based on the context provided."
-            else:
-                system_prompt = "You are a helpful FDA regulatory assistant. You have general knowledge about FDA regulations, processes, and guidelines."
+        # Add system prompt if provided, or create one if RAG is enabled
+        if request.system_prompt or request.use_rag:
+            system_prompt = request.system_prompt or ""
 
-            openai_messages.append({"role": "system", "content": system_prompt})
+            # Append RAG instruction if RAG is enabled and not already mentioned
+            if request.use_rag:
+                if (
+                    "knowledge base" not in system_prompt.lower()
+                    and "context" not in system_prompt.lower()
+                ):
+                    rag_instruction = "You are given access to a knowledge base. Provide accurate, concise responses based on the context provided."
+                    if system_prompt:
+                        system_prompt += f"\n\n{rag_instruction}"
+                    else:
+                        system_prompt = rag_instruction
+
+            if system_prompt:
+                logger.info(f"System prompt: {system_prompt}")
+                openai_messages.append({"role": "system", "content": system_prompt})
 
         # Process conversation history
         for msg in request.messages:
@@ -286,14 +295,18 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                             # Prepare sources for the frontend
                             for i, chunk in enumerate(similar_chunks[:3]):
                                 metadata = chunk.get("metadata", {})
-                                rag_sources.append({
-                                    "type": "document",
-                                    "id": chunk.get("id"),
-                                    "filename": metadata.get("filename", "Unknown"),
-                                    "chunk_index": metadata.get("chunk_index", 0),
-                                    "score": round(chunk.get("score", 0), 4),
-                                    "text": metadata.get("text", "")[:500],  # Truncate for source display
-                                })
+                                rag_sources.append(
+                                    {
+                                        "type": "document",
+                                        "id": chunk.get("id"),
+                                        "filename": metadata.get("filename", "Unknown"),
+                                        "chunk_index": metadata.get("chunk_index", 0),
+                                        "score": round(chunk.get("score", 0), 4),
+                                        "text": metadata.get("text", "")[
+                                            :500
+                                        ],  # Truncate for source display
+                                    }
+                                )
 
                             context = "\n\n".join(
                                 [

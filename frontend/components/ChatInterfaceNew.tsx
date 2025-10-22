@@ -9,6 +9,9 @@ import {
   MessageCircle,
   Paperclip,
   X,
+  Settings,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -29,9 +32,13 @@ interface SourceMetadata {
   };
 }
 
+const DEFAULT_SYSTEM_PROMPT =
+  "You are an expert AI researcher in pharmaceutical development, specializing in process optimization and automation.";
+
 export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
   const [useRAG, setUseRAG] = useState(true);
-  const [useSystemPrompt, setUseSystemPrompt] = useState(true);
+  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
+  const [showSystemPromptEditor, setShowSystemPromptEditor] = useState(false);
 
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<FileList | undefined>(undefined);
@@ -94,21 +101,58 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-700">
-            System Prompt:
-          </span>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={useSystemPrompt}
-              onChange={(e) => setUseSystemPrompt(e.target.checked)}
-              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">
-              Use FDA regulatory assistant prompt
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">
+              System Prompt:
             </span>
-          </label>
+            <button
+              type="button"
+              onClick={() => setShowSystemPromptEditor(!showSystemPromptEditor)}
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              <Settings className="h-4 w-4" />
+              {showSystemPromptEditor ? (
+                <>
+                  Hide Editor <ChevronUp className="h-3 w-3" />
+                </>
+              ) : (
+                <>
+                  Customize <ChevronDown className="h-3 w-3" />
+                </>
+              )}
+            </button>
+          </div>
+
+          <div
+            className={`space-y-2 pl-4 border-l-2 border-blue-300 bg-blue-50/50 p-3 rounded-r ${
+              showSystemPromptEditor ? "hidden" : ""
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-semibold text-gray-800">
+                System Prompt
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setSystemPrompt(
+                    "You are an expert AI researcher in pharmaceutical development, specializing in process optimization and automation."
+                  )
+                }
+                className="text-xs font-medium text-blue-700 hover:text-blue-900 underline"
+              >
+                Reset to Default
+              </button>
+            </div>
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder="Enter your system prompt here..."
+              className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none bg-white"
+              rows={3}
+            />
+          </div>
         </div>
       </div>
 
@@ -116,16 +160,13 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 mt-8">
             <p className="text-lg font-semibold">
-              Welcome to FDA RAG Assistant
+              Welcome to Pharmaceutical Development Assistant
             </p>
             <p className="text-sm mt-2">
-              Ask questions about FDA regulations and processes
+              Ask questions about pharmaceutical development
             </p>
             <p className="text-xs mt-4 text-gray-400">
               Toggle between RAG and Direct mode to compare results
-            </p>
-            <p className="text-xs text-gray-400">
-              Now with full conversation history support!
             </p>
           </div>
         ) : (
@@ -195,8 +236,11 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
                               .filter((part) => part.type === "source-document")
                               .map((part, idx) => {
                                 // AI SDK SourceDocumentUIPart
-                                if (part.type !== "source-document") return null;
-                                const metadata = part.providerMetadata as SourceMetadata | undefined;
+                                if (part.type !== "source-document")
+                                  return null;
+                                const metadata = part.providerMetadata as
+                                  | SourceMetadata
+                                  | undefined;
                                 const rag = metadata?.rag;
                                 return (
                                   <details
@@ -208,10 +252,13 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
                                     </summary>
                                     <div className="mt-2 space-y-1">
                                       <div className="text-gray-600">
-                                        <span className="font-semibold">File:</span> {part.filename}
+                                        <span className="font-semibold">
+                                          File:
+                                        </span>{" "}
+                                        {part.filename}
                                       </div>
                                       <div className="text-gray-700 whitespace-pre-wrap border-t pt-2">
-                                        {rag?.text || 'No content available'}
+                                        {rag?.text || "No content available"}
                                       </div>
                                     </div>
                                   </details>
@@ -274,7 +321,7 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
                 body: {
                   model: selectedModel,
                   use_rag: useRAG,
-                  use_system_prompt: useSystemPrompt,
+                  system_prompt: systemPrompt,
                 },
               }
             );
@@ -337,7 +384,7 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={status !== "ready"}
-            placeholder="Ask questions about FDA regulations..."
+            placeholder="Ask questions about pharmaceutical development and regulations..."
             className="flex-1 px-4 py-2 border rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button

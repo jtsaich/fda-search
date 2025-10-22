@@ -60,7 +60,7 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     model: Optional[str] = "google/gemma-3-27b-it:free"
     use_rag: Optional[bool] = True
-    use_system_prompt: Optional[bool] = True
+    system_prompt: Optional[str] = None
 
 
 available_tools = {}
