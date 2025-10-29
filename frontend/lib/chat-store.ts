@@ -1,6 +1,13 @@
 import { UIMessage } from "ai";
 import { supabase } from "./supabase";
 
+// Type for message parts in UIMessage
+interface MessagePart {
+  type: string;
+  text?: string;
+  [key: string]: unknown;
+}
+
 export async function createChat(): Promise<string> {
   const { data, error } = await supabase
     .from("chats")
@@ -140,9 +147,9 @@ export async function listChats(): Promise<
         } else if (messageContent.parts) {
           // Find the first text part
           const textPart = messageContent.parts.find(
-            (p: any) => p.type === "text"
+            (p: MessagePart) => p.type === "text"
           );
-          if (textPart) {
+          if (textPart && textPart.text) {
             lastMessage = textPart.text;
           }
         }
