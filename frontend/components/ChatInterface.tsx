@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, UIMessage } from "ai";
 import { saveChat } from "@/lib/chat-store";
 
 interface ChatInterfaceProps {
@@ -70,7 +70,7 @@ export function ChatInterface({
           console.log("Chat saved successfully");
 
           // Notify sidebar to refresh
-          window.dispatchEvent(new CustomEvent('chatUpdated'));
+          window.dispatchEvent(new CustomEvent("chatUpdated"));
         } catch (error) {
           console.error("Error saving chat:", error);
         }
