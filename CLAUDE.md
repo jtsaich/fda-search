@@ -11,6 +11,7 @@ This is an FDA Regulatory Assistant using Retrieval-Augmented Generation (RAG). 
 **Tech Stack:**
 - Backend: FastAPI + Python with Pinecone vector DB
 - Frontend: Next.js 14 + React + TypeScript + TailwindCSS
+- Persistence: Supabase PostgreSQL for chat history
 - Embeddings: HuggingFace (sentence-transformers/all-MiniLM-L6-v2)
 - LLM: OpenRouter (Claude/GPT-4/Llama access)
 
@@ -54,11 +55,16 @@ backend/
 
 frontend/
 ├── app/                 # Next.js app router pages
+│   ├── page.tsx         # Redirects to new chat
+│   └── chat/
+│       └── [id]/        # Dynamic chat pages
 ├── components/          # React components
 │   ├── DocumentUpload.tsx
 │   ├── ChatInterface.tsx
 │   └── DocumentList.tsx
 └── lib/                # Utilities and API client
+    ├── supabase.ts      # Supabase client
+    └── chat-store.ts    # Chat persistence
 ```
 
 ## Required Environment Variables
@@ -70,7 +76,13 @@ OPENROUTER_API_KEY=
 PINECONE_API_KEY=
 PINECONE_ENVIRONMENT=gcp-starter
 PINECONE_INDEX_NAME=fda-documents
+
+# For chat persistence (frontend)
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
+
+See `CHAT_PERSISTENCE_SETUP.md` for Supabase setup instructions.
 
 ## Key Implementation Details
 
@@ -83,8 +95,9 @@ PINECONE_INDEX_NAME=fda-documents
    - `DELETE /documents/{id}` - Remove documents
 
 4. **Frontend Routes**:
-   - `/` - Main chat interface
-   - `/documents` - Document management
+   - `/` - Redirects to new chat session
+   - `/chat/[id]` - Chat interface with persistence
+   - Document upload and management via tabs
 
 ## Architecture Decision: Frontend + Backend Approach
 
@@ -110,9 +123,16 @@ PINECONE_INDEX_NAME=fda-documents
 
 ## Current Status
 
-**LLM Integration Complete** - Chat interface working with OpenRouter via official AI SDK provider. Backend RAG pipeline ready for implementation:
-1. Document upload and processing service implemented
-2. Embedding and vector storage services ready
-3. RAG query logic prepared for integration
-4. Frontend chat interface operational with direct LLM
-5. Ready to connect frontend to backend RAG pipeline
+**Chat Persistence Implemented** - Full chat history persistence using Supabase:
+1. ✅ Document upload and processing service implemented
+2. ✅ Embedding and vector storage with Pinecone
+3. ✅ RAG query logic with source tracking
+4. ✅ Frontend chat interface with streaming responses
+5. ✅ Chat persistence with Supabase PostgreSQL
+6. ✅ Message history loads on page refresh
+7. ✅ RAG sources preserved in chat history
+
+**Next Steps:**
+- Add chat list sidebar
+- Implement user authentication
+- Optimize with single-message requests

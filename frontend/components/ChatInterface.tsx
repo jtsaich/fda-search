@@ -17,8 +17,11 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DefaultChatTransport } from "ai";
+import { saveChat } from "@/lib/chat-store";
 
 interface ChatInterfaceProps {
+  id?: string;
+  initialMessages?: UIMessage[];
   selectedModel: string;
 }
 
@@ -35,7 +38,11 @@ interface SourceMetadata {
 const DEFAULT_SYSTEM_PROMPT =
   "You are an expert AI researcher in pharmaceutical development, specializing in process optimization and automation.";
 
-export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
+export function ChatInterface({
+  id,
+  initialMessages,
+  selectedModel,
+}: ChatInterfaceProps) {
   const [useRAG, setUseRAG] = useState(true);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [showSystemPromptEditor, setShowSystemPromptEditor] = useState(false);
@@ -45,6 +52,8 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { messages, sendMessage, status } = useChat({
+    id, // Use the chat ID for persistence
+    messages: initialMessages, // Load initial messages
     transport: new DefaultChatTransport({
       api: `${
         process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
@@ -52,8 +61,20 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
     }),
     onData: (dataPart) => console.log("data", dataPart),
     onError: (options) => console.log("error", options),
-    onFinish: (options) => {
+    onFinish: async (options) => {
       console.log("finish", options);
+      // Save messages to Supabase
+      if (id && options.messages) {
+        try {
+          await saveChat({ chatId: id, messages: options.messages });
+          console.log("Chat saved successfully");
+
+          // Notify sidebar to refresh
+          window.dispatchEvent(new CustomEvent('chatUpdated'));
+        } catch (error) {
+          console.error("Error saving chat:", error);
+        }
+      }
       // Clear files after message is sent
       setFiles(undefined);
       if (fileInputRef.current) {
@@ -63,7 +84,7 @@ export function ChatInterface({ selectedModel }: ChatInterfaceProps) {
   });
 
   return (
-    <div className="flex flex-col h-[600px] w-full max-w-4xl mx-auto border rounded-lg shadow-lg">
+    <div className="flex flex-col h-[calc(100vh-16rem)] lg:h-[600px] w-full mx-auto border rounded-lg shadow-lg bg-white">
       {/* Toggle Control */}
       <div className="border-b p-3 bg-gray-50 space-y-3">
         <div className="flex items-center justify-between">
