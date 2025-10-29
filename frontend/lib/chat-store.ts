@@ -9,18 +9,33 @@ interface MessagePart {
 }
 
 export async function createChat(): Promise<string> {
-  const { data, error } = await supabase
-    .from("chats")
-    .insert({})
-    .select("id")
-    .single();
+  console.log('createChat: Starting chat creation...');
+  console.log('createChat: Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
 
-  if (error) {
-    console.error("Error creating chat:", error);
-    throw new Error("Failed to create chat");
+  try {
+    const { data, error } = await supabase
+      .from("chats")
+      .insert({})
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("createChat: Supabase error:", error);
+      console.error("createChat: Error details:", JSON.stringify(error, null, 2));
+      throw new Error(`Failed to create chat: ${error.message}`);
+    }
+
+    if (!data || !data.id) {
+      console.error("createChat: No data returned from insert");
+      throw new Error("Failed to create chat: No ID returned");
+    }
+
+    console.log('createChat: Successfully created chat with ID:', data.id);
+    return data.id;
+  } catch (err) {
+    console.error("createChat: Caught exception:", err);
+    throw err;
   }
-
-  return data.id;
 }
 
 export async function loadChat(id: string): Promise<UIMessage[]> {
