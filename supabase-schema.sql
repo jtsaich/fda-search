@@ -28,6 +28,19 @@ CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_chats_created_at ON chats(created_at);
 
+-- Table to store reusable system prompts / personas
+CREATE TABLE IF NOT EXISTS system_prompts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_system_prompts_name ON system_prompts(name);
+CREATE INDEX IF NOT EXISTS idx_system_prompts_updated_at ON system_prompts(updated_at);
+
 -- Function to update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -44,9 +57,17 @@ CREATE TRIGGER update_chats_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+-- Trigger to automatically update updated_at on system_prompts
+DROP TRIGGER IF EXISTS update_system_prompts_updated_at ON system_prompts;
+CREATE TRIGGER update_system_prompts_updated_at
+    BEFORE UPDATE ON system_prompts
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- Enable Row Level Security (RLS) if you add authentication later
 -- ALTER TABLE chats ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE system_prompts ENABLE ROW LEVEL SECURITY;
 
 -- Example RLS policies (uncomment when you add authentication)
 -- CREATE POLICY "Users can view their own chats" ON chats

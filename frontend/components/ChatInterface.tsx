@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import {
   Send,
@@ -9,15 +9,13 @@ import {
   MessageCircle,
   Paperclip,
   X,
-  Settings,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DefaultChatTransport, UIMessage } from "ai";
 import { saveChat } from "@/lib/chat-store";
+import { SystemPromptManager } from "./SystemPromptManager";
 
 interface ChatInterfaceProps {
   id?: string;
@@ -45,7 +43,6 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const [useRAG, setUseRAG] = useState(true);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
-  const [showSystemPromptEditor, setShowSystemPromptEditor] = useState(false);
 
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<FileList | undefined>(undefined);
@@ -122,59 +119,11 @@ export function ChatInterface({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-700">
-              System Prompt:
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowSystemPromptEditor(!showSystemPromptEditor)}
-              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition-colors"
-            >
-              <Settings className="h-4 w-4" />
-              {showSystemPromptEditor ? (
-                <>
-                  Hide Editor <ChevronUp className="h-3 w-3" />
-                </>
-              ) : (
-                <>
-                  Customize <ChevronDown className="h-3 w-3" />
-                </>
-              )}
-            </button>
-          </div>
-
-          <div
-            className={`space-y-2 pl-4 border-l-2 border-blue-300 bg-blue-50/50 p-3 rounded-r ${
-              showSystemPromptEditor ? "hidden" : ""
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-gray-800">
-                System Prompt
-              </label>
-              <button
-                type="button"
-                onClick={() =>
-                  setSystemPrompt(
-                    "You are an expert AI researcher in pharmaceutical development, specializing in process optimization and automation."
-                  )
-                }
-                className="text-xs font-medium text-blue-700 hover:text-blue-900 underline"
-              >
-                Reset to Default
-              </button>
-            </div>
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="Enter your system prompt here..."
-              className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none bg-white"
-              rows={3}
-            />
-          </div>
-        </div>
+        <SystemPromptManager
+          systemPrompt={systemPrompt}
+          onSystemPromptChange={setSystemPrompt}
+          defaultPrompt={DEFAULT_SYSTEM_PROMPT}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
