@@ -136,10 +136,10 @@ export default function ChatPageWithId() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="mx-auto">
+      <div className="flex-1 overflow-hidden min-h-0">
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 py-6">
           {activeTab === "chat" && (
-            <div>
+            <div className="flex h-full flex-1 min-h-0 flex-col">
               <ChatInterface
                 key={id} // Force remount when chat ID changes
                 id={id}
@@ -150,17 +150,21 @@ export default function ChatPageWithId() {
           )}
 
           {activeTab === "upload" && (
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                Upload FDA Documents
-              </h2>
-              <DocumentUpload />
+            <div className="flex h-full flex-1 min-h-0">
+              <div className="flex flex-1 flex-col overflow-auto rounded-lg bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-xl font-semibold text-gray-800">
+                  Upload FDA Documents
+                </h2>
+                <DocumentUpload />
+              </div>
             </div>
           )}
 
           {activeTab === "documents" && (
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <DocumentList />
+            <div className="flex h-full flex-1 min-h-0">
+              <div className="flex flex-1 flex-col overflow-auto rounded-lg bg-white p-6 shadow-sm">
+                <DocumentList />
+              </div>
             </div>
           )}
         </div>

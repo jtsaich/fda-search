@@ -81,7 +81,7 @@ export function ChatInterface({
   });
 
   return (
-    <div className="flex flex-col h-[calc(100vh-16rem)] lg:h-[600px] w-full mx-auto border rounded-lg shadow-lg bg-white">
+    <div className="flex flex-1 min-h-0 flex-col w-full border rounded-lg shadow-lg bg-white">
       {/* Toggle Control */}
       <div className="border-b p-3 bg-gray-50 space-y-3">
         <div className="flex items-center justify-between">
