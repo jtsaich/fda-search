@@ -36,7 +36,7 @@ export default function ChatPageWithId() {
       setLoading(true);
       try {
         const messages = await loadChat(id);
-        console.log('Setting initial messages:', messages);
+        console.log("Setting initial messages:", messages);
         setInitialMessages(messages);
       } catch (error) {
         console.error("Error loading chat:", error);
@@ -65,18 +65,10 @@ export default function ChatPageWithId() {
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* Header - Hidden on mobile (shown in layout) */}
-      <header className="hidden lg:block bg-white shadow-sm border-b">
+      {/* Header - Hidden for now since there's only one model */}
+      <header className="hidden bg-white shadow-sm border-b">
         <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                FDA RAG Assistant
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                AI-powered regulatory document search and Q&A
-              </p>
-            </div>
+          <div className="flex items-center justify-end">
             <div className="flex items-center gap-2">
               <label
                 htmlFor="global-model-select"

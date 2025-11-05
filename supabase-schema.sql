@@ -7,8 +7,7 @@ CREATE TABLE IF NOT EXISTS chats (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     title TEXT,
-    -- Add user_id if you implement authentication later
-    -- user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     metadata JSONB DEFAULT '{}'::jsonb
 );
 
@@ -24,9 +23,14 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 -- Index for faster queries
+-- Ensure user_id column exists when upgrading existing installations
+ALTER TABLE chats
+    ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_chats_created_at ON chats(created_at);
+CREATE INDEX IF NOT EXISTS idx_chats_user_id ON chats(user_id);
 
 -- Table to store reusable system prompts / personas
 CREATE TABLE IF NOT EXISTS system_prompts (
@@ -64,17 +68,70 @@ CREATE TRIGGER update_system_prompts_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Enable Row Level Security (RLS) if you add authentication later
--- ALTER TABLE chats ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE system_prompts ENABLE ROW LEVEL SECURITY;
+-- Enable Row Level Security (RLS) to scope data per authenticated user
+ALTER TABLE chats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
--- Example RLS policies (uncomment when you add authentication)
--- CREATE POLICY "Users can view their own chats" ON chats
---     FOR SELECT USING (auth.uid() = user_id);
--- CREATE POLICY "Users can insert their own chats" ON chats
---     FOR INSERT WITH CHECK (auth.uid() = user_id);
--- CREATE POLICY "Users can update their own chats" ON chats
---     FOR UPDATE USING (auth.uid() = user_id);
--- CREATE POLICY "Users can delete their own chats" ON chats
---     FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view their own chats" ON chats;
+CREATE POLICY "Users can view their own chats" ON chats
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own chats" ON chats;
+CREATE POLICY "Users can insert their own chats" ON chats
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own chats" ON chats;
+CREATE POLICY "Users can update their own chats" ON chats
+    FOR UPDATE USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own chats" ON chats;
+CREATE POLICY "Users can delete their own chats" ON chats
+    FOR DELETE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can view messages for their chats" ON messages;
+CREATE POLICY "Users can view messages for their chats" ON messages
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM chats
+            WHERE chats.id = messages.chat_id
+              AND chats.user_id = auth.uid()
+        )
+    );
+
+DROP POLICY IF EXISTS "Users can insert messages for their chats" ON messages;
+CREATE POLICY "Users can insert messages for their chats" ON messages
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM chats
+            WHERE chats.id = messages.chat_id
+              AND chats.user_id = auth.uid()
+        )
+    );
+
+DROP POLICY IF EXISTS "Users can update messages for their chats" ON messages;
+CREATE POLICY "Users can update messages for their chats" ON messages
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM chats
+            WHERE chats.id = messages.chat_id
+              AND chats.user_id = auth.uid()
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM chats
+            WHERE chats.id = messages.chat_id
+              AND chats.user_id = auth.uid()
+        )
+    );
+
+DROP POLICY IF EXISTS "Users can delete messages for their chats" ON messages;
+CREATE POLICY "Users can delete messages for their chats" ON messages
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM chats
+            WHERE chats.id = messages.chat_id
+              AND chats.user_id = auth.uid()
+        )
+    );

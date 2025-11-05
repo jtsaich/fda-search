@@ -1,5 +1,6 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { UIMessage } from "ai";
-import { supabase } from "./supabase";
+import { createClient } from "@/utils/supabase/client";
 
 // Type for message parts in UIMessage
 interface MessagePart {
@@ -8,38 +9,50 @@ interface MessagePart {
   [key: string]: unknown;
 }
 
-export async function createChat(): Promise<string> {
-  console.log('createChat: Starting chat creation...');
-  console.log('createChat: Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+async function getAuthedClient() {
+  const supabase = createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  try {
-    const { data, error } = await supabase
-      .from("chats")
-      .insert({})
-      .select("id")
-      .single();
+  if (error) {
+    throw new Error("Failed to determine current user");
+  }
 
-    if (error) {
-      console.error("createChat: Supabase error:", error);
-      console.error("createChat: Error details:", JSON.stringify(error, null, 2));
-      throw new Error(`Failed to create chat: ${error.message}`);
-    }
+  if (!user) {
+    throw new Error("Not authenticated");
+  }
 
-    if (!data || !data.id) {
-      console.error("createChat: No data returned from insert");
-      throw new Error("Failed to create chat: No ID returned");
-    }
+  return { supabase, user };
+}
 
-    console.log('createChat: Successfully created chat with ID:', data.id);
-    return data.id;
-  } catch (err) {
-    console.error("createChat: Caught exception:", err);
-    throw err;
+async function assertChatOwnership(
+  supabase: SupabaseClient,
+  chatId: string,
+  userId: string
+) {
+  const { data, error } = await supabase
+    .from("chats")
+    .select("id")
+    .eq("id", chatId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to verify chat ownership:", error);
+    throw new Error("Unable to verify chat access");
+  }
+
+  if (!data) {
+    throw new Error("Chat not found");
   }
 }
 
 export async function loadChat(id: string): Promise<UIMessage[]> {
-  console.log("Loading chat with ID:", id);
+  const { supabase, user } = await getAuthedClient();
+
+  await assertChatOwnership(supabase, id, user.id);
 
   const { data, error } = await supabase
     .from("messages")
@@ -52,19 +65,12 @@ export async function loadChat(id: string): Promise<UIMessage[]> {
     throw new Error("Failed to load chat");
   }
 
-  console.log("Raw data from Supabase:", data);
-  console.log("Number of messages loaded:", data?.length || 0);
-
   if (!data || data.length === 0) {
-    console.warn("No messages found for chat ID:", id);
     return [];
   }
 
   // Parse the content JSONB field back to UIMessage[]
-  const messages = data.map((row) => row.content as UIMessage);
-  console.log("Parsed messages:", messages);
-
-  return messages;
+  return data.map((row) => row.content as UIMessage);
 }
 
 export async function saveChat({
@@ -74,9 +80,9 @@ export async function saveChat({
   chatId: string;
   messages: UIMessage[];
 }): Promise<void> {
-  console.log("Saving chat:", chatId);
-  console.log("Number of messages to save:", messages.length);
-  console.log("Messages to save:", messages);
+  const { supabase, user } = await getAuthedClient();
+
+  await assertChatOwnership(supabase, chatId, user.id);
 
   // Delete existing messages for this chat to avoid duplicates
   const { error: deleteError } = await supabase
@@ -98,9 +104,7 @@ export async function saveChat({
     sequence_number: idx,
   }));
 
-  console.log("Prepared messages for insert:", messagesWithSequence.length);
-
-  const { data: insertData, error: insertError } = await supabase
+  const { error: insertError } = await supabase
     .from("messages")
     .insert(messagesWithSequence)
     .select();
@@ -110,13 +114,12 @@ export async function saveChat({
     throw new Error("Failed to save messages");
   }
 
-  console.log("Successfully saved messages:", insertData?.length || 0);
-
   // Update the chat's updated_at timestamp
   const { error: updateError } = await supabase
     .from("chats")
     .update({ updated_at: new Date().toISOString() })
-    .eq("id", chatId);
+    .eq("id", chatId)
+    .eq("user_id", user.id);
 
   if (updateError) {
     console.error("Error updating chat timestamp:", updateError);
@@ -133,14 +136,21 @@ export async function listChats(): Promise<
     lastMessage?: string;
   }>
 > {
+  const { supabase, user } = await getAuthedClient();
+
   const { data: chats, error } = await supabase
     .from("chats")
     .select("id, created_at, updated_at, title")
+    .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
 
   if (error) {
     console.error("Error listing chats:", error);
     throw new Error("Failed to list chats");
+  }
+
+  if (!chats || chats.length === 0) {
+    return [];
   }
 
   // Fetch the last message for each chat
@@ -181,7 +191,13 @@ export async function listChats(): Promise<
 }
 
 export async function deleteChat(id: string): Promise<void> {
-  const { error } = await supabase.from("chats").delete().eq("id", id);
+  const { supabase, user } = await getAuthedClient();
+
+  const { error } = await supabase
+    .from("chats")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
 
   if (error) {
     console.error("Error deleting chat:", error);

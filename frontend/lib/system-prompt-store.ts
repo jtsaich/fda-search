@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { createClient } from "@/utils/supabase/client";
 
 export interface SystemPrompt {
   id: string;
@@ -10,6 +10,7 @@ export interface SystemPrompt {
 }
 
 export async function listSystemPrompts(): Promise<SystemPrompt[]> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from("system_prompts")
     .select("id, name, description, content, created_at, updated_at")
@@ -32,6 +33,7 @@ export async function createSystemPrompt({
   description?: string;
   content: string;
 }): Promise<SystemPrompt> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from("system_prompts")
     .insert({ name, description, content })
@@ -66,6 +68,7 @@ export async function updateSystemPrompt(
     content?: string;
   }
 ): Promise<SystemPrompt> {
+  const supabase = createClient();
   const updates: Record<string, string | null | undefined> = {
     name,
     description,
@@ -103,6 +106,7 @@ export async function updateSystemPrompt(
 }
 
 export async function deleteSystemPrompt(id: string): Promise<void> {
+  const supabase = createClient();
   const { error } = await supabase
     .from("system_prompts")
     .delete()

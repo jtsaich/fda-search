@@ -1,17 +1,16 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { createChat } from "@/lib/chat-server";
+import { LoginForm } from "./login-form";
 
-export default async function ChatPage() {
+export default async function LoginPage() {
   const supabase = await createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  if (!session) {
-    redirect("/login");
+  if (session) {
+    redirect("/");
   }
 
-  const id = await createChat();
-  redirect(`/chat/${id}`);
+  return <LoginForm />;
 }
