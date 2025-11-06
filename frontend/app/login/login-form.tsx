@@ -1,9 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Loader2 } from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
 
 type Mode = "signIn" | "signUp";
 
@@ -14,8 +14,25 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const supabase = createClient();
+
+  async function syncServerAuth(
+    event: "SIGNED_IN" | "TOKEN_REFRESHED",
+    session: Session | null
+  ): Promise<Response | null> {
+    try {
+      const response = await fetch("/auth/callback", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event, session }),
+      });
+      return response;
+    } catch (syncError) {
+      console.error("Failed to sync auth session with server:", syncError);
+      return null;
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,25 +42,38 @@ export function LoginForm() {
 
     try {
       if (mode === "signIn") {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { data, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
 
         if (signInError) {
           throw signInError;
         }
 
-        router.replace("/");
-        router.refresh();
+        const response = await syncServerAuth("SIGNED_IN", data.session);
+        if (!response?.ok) {
+          throw new Error("Failed to sync authentication session");
+        }
+        window.location.assign("/");
       } else {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
         });
 
         if (signUpError) {
           throw signUpError;
+        }
+
+        if (data.session) {
+          const response = await syncServerAuth("SIGNED_IN", data.session);
+          if (!response?.ok) {
+            throw new Error("Failed to sync authentication session");
+          }
+          window.location.assign("/");
+          return;
         }
 
         setMessage("Check your email to confirm your account.");

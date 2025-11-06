@@ -5,13 +5,19 @@ import { createClient } from "@/utils/supabase/server";
 export default async function Home() {
   const supabase = await createClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (error) {
+    console.error("Failed to authenticate user:", error);
     redirect("/login");
   }
 
-  const id = await createChat();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const id = await createChat(user);
   redirect(`/chat/${id}`);
 }

@@ -1,24 +1,32 @@
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server";
 
-export async function createChat(): Promise<string> {
+export async function createChat(user?: User): Promise<string> {
   const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
 
-  if (userError) {
-    console.error("Failed to retrieve Supabase user:", userError);
-    throw new Error("Unable to authenticate request");
+  let authenticatedUser = user;
+
+  if (!authenticatedUser) {
+    const {
+      data: { user: fetchedUser },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Failed to retrieve Supabase user:", userError);
+      throw new Error("Unable to authenticate request");
+    }
+
+    authenticatedUser = fetchedUser ?? undefined;
   }
 
-  if (!user) {
+  if (!authenticatedUser?.id) {
     throw new Error("Not authenticated");
   }
 
   const { data, error } = await supabase
     .from("chats")
-    .insert({ user_id: user.id })
+    .insert({ user_id: authenticatedUser.id })
     .select("id")
     .single();
 
