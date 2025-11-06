@@ -1,28 +1,14 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import {
+  createBrowserClient,
+  type CookieMethodsBrowser,
+  type CookieOptions,
+} from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-type CookieOptions = {
-  domain?: string;
-  expires?: string | number | Date;
-  maxAge?: number;
-  httpOnly?: boolean;
-  partitioned?: boolean;
-  path?: string;
-  sameSite?: "lax" | "strict" | "none";
-  secure?: boolean;
-  priority?: "low" | "medium" | "high";
-};
-
-type SupabaseCookie = {
-  name: string;
-  value: string;
-  options?: CookieOptions;
-};
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing Supabase environment variables");
@@ -45,12 +31,12 @@ function serializeCookie(
 
   if (options?.expires) {
     const expires =
-      typeof options.expires === "string"
+      options.expires instanceof Date
+        ? options.expires.toUTCString()
+        : typeof options.expires === "string"
         ? options.expires
         : typeof options.expires === "number"
         ? new Date(options.expires).toUTCString()
-        : options.expires instanceof Date
-        ? options.expires.toUTCString()
         : undefined;
 
     if (expires) {
@@ -64,8 +50,23 @@ function serializeCookie(
     parts.push(`Domain=${options.domain}`);
   }
 
-  if (options?.sameSite) {
-    parts.push(`SameSite=${options.sameSite}`);
+  if (options?.sameSite !== undefined) {
+    const sameSite =
+      options.sameSite === true
+        ? "Strict"
+        : options.sameSite === false
+        ? undefined
+        : options.sameSite === "lax"
+        ? "Lax"
+        : options.sameSite === "strict"
+        ? "Strict"
+        : options.sameSite === "none"
+        ? "None"
+        : options.sameSite;
+
+    if (sameSite) {
+      parts.push(`SameSite=${sameSite}`);
+    }
   }
 
   if (options?.secure) {
@@ -87,49 +88,49 @@ function serializeCookie(
   return parts.join("; ");
 }
 
-function getAllCookies(): SupabaseCookie[] {
-  if (typeof document === "undefined" || !document.cookie) {
-    return [];
-  }
-
-  return document.cookie.split("; ").reduce<SupabaseCookie[]>((acc, entry) => {
-    if (!entry) {
-      return acc;
+const browserCookieMethods: CookieMethodsBrowser = {
+  getAll() {
+    if (typeof document === "undefined" || !document.cookie) {
+      return [];
     }
 
-    const [rawName, ...rest] = entry.split("=");
-    const rawValue = rest.join("=");
+    return document.cookie.split("; ").reduce<
+      { name: string; value: string }[]
+    >((acc, entry) => {
+      if (!entry) {
+        return acc;
+      }
 
-    if (!rawName) {
+      const [rawName, ...rest] = entry.split("=");
+      const rawValue = rest.join("=");
+
+      if (!rawName) {
+        return acc;
+      }
+
+      acc.push({
+        name: decodeURIComponent(rawName),
+        value: decodeURIComponent(rawValue ?? ""),
+      });
+
       return acc;
+    }, []);
+  },
+  setAll(cookies) {
+    if (typeof document === "undefined") {
+      return;
     }
 
-    acc.push({
-      name: decodeURIComponent(rawName),
-      value: decodeURIComponent(rawValue ?? ""),
+    cookies.forEach(({ name, value, options }) => {
+      document.cookie = serializeCookie(name, value, options);
     });
-
-    return acc;
-  }, []);
-}
+  },
+};
 
 export function createClient() {
   if (!client) {
     client = createBrowserClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll(): SupabaseCookie[] {
-          return getAllCookies();
-        },
-        setAll(cookies: SupabaseCookie[]) {
-          if (typeof document === "undefined") {
-            return;
-          }
-
-          cookies.forEach(({ name, value, options }) => {
-            document.cookie = serializeCookie(name, value, options);
-          });
-        },
-      },
+      cookies: browserCookieMethods,
     });
   }
 
