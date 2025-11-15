@@ -1,9 +1,9 @@
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { ChatLayoutClient } from "./chat-layout-client";
+import { SidebarLayout } from "@/components/sidebar-layout";
 
-export default async function ChatLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: ReactNode;
@@ -17,5 +17,5 @@ export default async function ChatLayout({
     redirect("/login");
   }
 
-  return <ChatLayoutClient user={user}>{children}</ChatLayoutClient>;
+  return <SidebarLayout>{children}</SidebarLayout>;
 }

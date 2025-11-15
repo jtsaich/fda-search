@@ -9,18 +9,11 @@ import {
   AlertCircle,
   Plus,
   Trash2,
-  Edit2,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import type {
-  UserRole,
-  Permission,
-  PermissionData,
-  RoleData,
-} from "@/types/roles";
+import type { UserRole, PermissionData, RoleData } from "@/types/roles";
 import {
   getRoleDisplayName,
-  getRoleDescription,
   getPermissionLabel,
   isSystemRole,
 } from "@/types/roles";
@@ -51,6 +44,7 @@ export function RolePermissionsManager() {
 
   useEffect(() => {
     loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadData() {
@@ -100,14 +94,16 @@ export function RolePermissionsManager() {
       });
 
       // Populate permissions
-      rolePerm?.forEach((rp: any) => {
+      rolePerm?.forEach((rp: { role: UserRole; permissions: { name: string; id: string }[] }) => {
         const role = rp.role;
-        const permName = rp.permissions.name;
+        const permName = rp.permissions[0]?.name;
 
-        if (!permMap.has(role)) {
+        if (permName && !permMap.has(role)) {
           permMap.set(role, new Set());
         }
-        permMap.get(role)?.add(permName);
+        if (permName) {
+          permMap.get(role)?.add(permName);
+        }
       });
 
       setRolePermissions(permMap);

@@ -1,0 +1,21 @@
+import { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { createClient } from "@/utils/supabase/server";
+import { ChatLayoutClient } from "./chat-layout-client";
+
+export default async function ChatLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  return <ChatLayoutClient>{children}</ChatLayoutClient>;
+}

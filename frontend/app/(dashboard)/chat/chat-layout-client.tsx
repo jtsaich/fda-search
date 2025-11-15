@@ -1,24 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, X, LogOut, Users, Shield } from "lucide-react";
-import Link from "next/link";
-import type { Session, User } from "@supabase/supabase-js";
+import { Menu, X, LogOut } from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { createClient } from "@/utils/supabase/client";
-import { useUserProfile, useIsAdmin } from "@/hooks/useRole";
-import { RoleBadge } from "@/components/RoleBadge";
 
 interface ChatLayoutClientProps {
   children: React.ReactNode;
-  user: User;
 }
 
-export function ChatLayoutClient({ children, user }: ChatLayoutClientProps) {
+export function ChatLayoutClient({ children }: ChatLayoutClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const supabase = createClient();
-  const { profile } = useUserProfile();
-  const { isAdmin } = useIsAdmin();
 
   async function syncServerLogout(
     event: "SIGNED_OUT",
@@ -93,46 +87,6 @@ export function ChatLayoutClient({ children, user }: ChatLayoutClientProps) {
             </button>
           </div>
         </div>
-
-        <div className="hidden lg:flex items-center justify-between px-6 py-4 border-b bg-white">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">
-              AI Assistant
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            {profile && <RoleBadge role={profile.role} size="sm" />}
-            <span className="text-sm text-gray-500">
-              {user.email ?? "Signed in"}
-            </span>
-            {isAdmin && (
-              <>
-                <Link
-                  href="/admin/users"
-                  className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50"
-                >
-                  <Users className="h-4 w-4" />
-                  Users
-                </Link>
-                <Link
-                  href="/admin/permissions"
-                  className="inline-flex items-center gap-2 rounded-lg border border-purple-200 bg-white px-3 py-1.5 text-sm font-medium text-purple-600 hover:bg-purple-50"
-                >
-                  <Shield className="h-4 w-4" />
-                  Permissions
-                </Link>
-              </>
-            )}
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </button>
-          </div>
-        </div>
-
         <main className="flex-1 overflow-hidden">{children}</main>
       </div>
     </div>
