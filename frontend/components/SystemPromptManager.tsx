@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -148,9 +148,7 @@ export function SystemPromptManager({
     selectedPromptIdRef.current = selectedPromptId;
   }, [selectedPromptId]);
 
-  const handleSelectPrompt = (
-    event: React.ChangeEvent<HTMLSelectElement>
-  ) => {
+  const handleSelectPrompt = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value;
     setActionMessage(null);
     setActionError(null);
@@ -298,11 +296,7 @@ export function SystemPromptManager({
   };
 
   const handleDeletePrompt = async (promptId: string) => {
-    if (
-      !window.confirm(
-        "Delete this persona? This action cannot be undone."
-      )
-    ) {
+    if (!window.confirm("Delete this persona? This action cannot be undone.")) {
       return;
     }
 
@@ -420,7 +414,8 @@ export function SystemPromptManager({
                     />
                     {!selectedPrompt && (
                       <p className="text-xs text-gray-500">
-                        You are using a custom prompt. Save it as a persona to reuse it later.
+                        You are using a custom prompt. Save it as a persona to
+                        reuse it later.
                       </p>
                     )}
                     {selectedPrompt && !hasSelectedPromptChanges && (
@@ -431,13 +426,19 @@ export function SystemPromptManager({
                     {selectedPrompt && hasSelectedPromptChanges && (
                       <p className="text-xs text-amber-600 flex items-center gap-1">
                         <AlertCircle className="h-3.5 w-3.5" />
-                        Unsaved changes to <span className="font-medium">{selectedPrompt.name}</span>
+                        Unsaved changes to{" "}
+                        <span className="font-medium">
+                          {selectedPrompt.name}
+                        </span>
                       </p>
                     )}
                   </div>
 
                   {/* Create New Persona Form */}
-                  <form onSubmit={handleCreatePrompt} className="space-y-3 border border-blue-200 rounded-lg bg-blue-50/30 p-4">
+                  <form
+                    onSubmit={handleCreatePrompt}
+                    className="space-y-3 border border-blue-200 rounded-lg bg-blue-50/30 p-4"
+                  >
                     <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
                       <PlusCircle className="h-4 w-4 text-blue-600" />
                       Create New Persona
@@ -537,7 +538,8 @@ export function SystemPromptManager({
                     </h3>
                     {systemPrompts.length === 0 ? (
                       <p className="text-sm text-gray-500">
-                        No personas saved yet. Create one to reuse it across sessions.
+                        No personas saved yet. Create one to reuse it across
+                        sessions.
                       </p>
                     ) : (
                       <ul className="space-y-3">
@@ -557,7 +559,8 @@ export function SystemPromptManager({
                                   </p>
                                 )}
                                 <p className="text-xs text-gray-500">
-                                  Updated {new Date(prompt.updated_at).toLocaleString()}
+                                  Updated{" "}
+                                  {new Date(prompt.updated_at).toLocaleString()}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
@@ -574,7 +577,9 @@ export function SystemPromptManager({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleStartEditingDetails(prompt)}
+                                  onClick={() =>
+                                    handleStartEditingDetails(prompt)
+                                  }
                                   className="text-xs text-gray-600 hover:text-gray-800 underline"
                                 >
                                   Edit details
@@ -719,7 +724,9 @@ export function SystemPromptManager({
               disabled={isSavingPrompt}
               className={cn(
                 "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-white",
-                isSavingPrompt ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"
+                isSavingPrompt
+                  ? "bg-gray-400"
+                  : "bg-green-600 hover:bg-green-700"
               )}
             >
               {isSavingPrompt ? (
@@ -760,9 +767,8 @@ export function SystemPromptManager({
       {/* Compact Status Indicator */}
       {selectedPrompt && (
         <div className="text-xs text-gray-600">
-          Using: <span className="font-medium">{selectedPrompt.name}</span>
           {hasSelectedPromptChanges && (
-            <span className="text-amber-600 ml-2">● Unsaved changes</span>
+            <span className="text-amber-600">● Unsaved changes</span>
           )}
         </div>
       )}

@@ -151,25 +151,6 @@ export function ChatInterface({
                     : "bg-gray-100 text-gray-900"
                 )}
               >
-                {message.role === "assistant" && (
-                  <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-gray-300">
-                    {useRAG ? (
-                      <>
-                        <BookOpen className="h-3.5 w-3.5 text-blue-600" />
-                        <span className="text-xs font-semibold text-blue-600">
-                          RAG Mode
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <MessageCircle className="h-3.5 w-3.5 text-purple-600" />
-                        <span className="text-xs font-semibold text-purple-600">
-                          Direct LLM
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
                 <div
                   className={cn(
                     "prose prose-sm max-w-none",
