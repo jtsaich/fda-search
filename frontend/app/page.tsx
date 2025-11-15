@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createChat } from "@/lib/chat-server";
+import { createChat, getLatestChat } from "@/lib/chat-server";
 import { createClient } from "@/utils/supabase/server";
 
 export default async function Home() {
@@ -18,6 +18,13 @@ export default async function Home() {
     redirect("/login");
   }
 
-  const id = await createChat(user);
+  // Try to get the latest chat session first
+  let id = await getLatestChat(user);
+
+  // If no chat exists, create a new one
+  if (!id) {
+    id = await createChat(user);
+  }
+
   redirect(`/chat/${id}`);
 }
