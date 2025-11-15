@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, X, LogOut } from "lucide-react";
-import type { Session } from "@supabase/supabase-js";
+import { Menu, X } from "lucide-react";
 import { ChatSidebar } from "@/components/ChatSidebar";
-import { createClient } from "@/utils/supabase/client";
 
 interface ChatLayoutClientProps {
   children: React.ReactNode;
@@ -12,38 +10,6 @@ interface ChatLayoutClientProps {
 
 export function ChatLayoutClient({ children }: ChatLayoutClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const supabase = createClient();
-
-  async function syncServerLogout(
-    event: "SIGNED_OUT",
-    session: Session | null = null
-  ): Promise<Response | null> {
-    try {
-      const response = await fetch("/auth/callback", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ event, session }),
-      });
-      return response;
-    } catch (error) {
-      console.error("Failed to sync logout with server:", error);
-      return null;
-    }
-  }
-
-  async function handleSignOut() {
-    try {
-      await supabase.auth.signOut();
-      const response = await syncServerLogout("SIGNED_OUT");
-      if (!response?.ok) {
-        throw new Error("Failed to sync logout session");
-      }
-      window.location.assign("/login");
-    } catch (error) {
-      console.error("Failed to sign out:", error);
-    }
-  }
 
   return (
     <div className="flex h-screen overflow-hidden">
