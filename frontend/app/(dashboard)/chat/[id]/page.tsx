@@ -1,33 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { loadChat } from "@/lib/chat-store";
 import { ChatInterface } from "@/components/ChatInterface";
-import { DocumentUpload } from "@/components/DocumentUpload";
-import { DocumentList } from "@/components/DocumentList";
-import {
-  MessageSquare,
-  Upload,
-  FileText,
-  ChevronDown,
-  Loader2,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { UIMessage } from "ai";
 import { useParams } from "next/navigation";
-
-type TabType = "chat" | "upload" | "documents";
-
-const models = [
-  { id: "google/gemma-3-27b-it:free", name: "Gemma 3 27B (Free)" },
-];
 
 export default function ChatPageWithId() {
   const params = useParams();
   const id = params.id as string;
-  const [activeTab, setActiveTab] = useState<TabType>("chat");
-  const [selectedModel, setSelectedModel] = useState(
-    "google/gemma-3-27b-it:free"
-  );
+  const selectedModel = "google/gemma-3-27b-it:free";
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -65,108 +48,17 @@ export default function ChatPageWithId() {
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* Header - Hidden for now since there's only one model */}
-      <header className="hidden bg-white shadow-sm border-b">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-end">
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="global-model-select"
-                className="text-sm font-medium text-gray-700"
-              >
-                AI Model:
-              </label>
-              <div className="relative">
-                <select
-                  id="global-model-select"
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  className="px-3 py-1.5 border rounded-lg bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-8 min-w-[180px]"
-                >
-                  {models.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Tabs */}
-      <div className="bg-white border-b px-4 lg:px-6">
-        <div className="flex gap-4">
-          <button
-            onClick={() => setActiveTab("chat")}
-            className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
-              activeTab === "chat"
-                ? "text-blue-600 border-blue-600"
-                : "text-gray-500 border-transparent hover:text-gray-700"
-            }`}
-          >
-            <MessageSquare className="h-5 w-5" />
-            <span className="hidden sm:inline">Chat</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("upload")}
-            className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
-              activeTab === "upload"
-                ? "text-blue-600 border-blue-600"
-                : "text-gray-500 border-transparent hover:text-gray-700"
-            }`}
-          >
-            <Upload className="h-5 w-5" />
-            <span className="hidden sm:inline">Upload</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("documents")}
-            className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
-              activeTab === "documents"
-                ? "text-blue-600 border-blue-600"
-                : "text-gray-500 border-transparent hover:text-gray-700"
-            }`}
-          >
-            <FileText className="h-5 w-5" />
-            <span className="hidden sm:inline">Documents</span>
-          </button>
-        </div>
-      </div>
-
       {/* Content */}
       <div className="flex-1 overflow-hidden min-h-0">
-        <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 py-6">
-          {activeTab === "chat" && (
-            <div className="flex h-full flex-1 min-h-0 flex-col">
-              <ChatInterface
-                key={id} // Force remount when chat ID changes
-                id={id}
-                initialMessages={initialMessages}
-                selectedModel={selectedModel}
-              />
-            </div>
-          )}
-
-          {activeTab === "upload" && (
-            <div className="flex h-full flex-1 min-h-0">
-              <div className="flex flex-1 flex-col overflow-auto rounded-lg bg-white p-6 shadow-sm">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">
-                  Upload FDA Documents
-                </h2>
-                <DocumentUpload />
-              </div>
-            </div>
-          )}
-
-          {activeTab === "documents" && (
-            <div className="flex h-full flex-1 min-h-0">
-              <div className="flex flex-1 flex-col overflow-auto rounded-lg bg-white p-6 shadow-sm">
-                <DocumentList />
-              </div>
-            </div>
-          )}
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col py-6">
+          <div className="flex h-full flex-1 min-h-0 flex-col">
+            <ChatInterface
+              key={id} // Force remount when chat ID changes
+              id={id}
+              initialMessages={initialMessages}
+              selectedModel={selectedModel}
+            />
+          </div>
         </div>
       </div>
     </div>

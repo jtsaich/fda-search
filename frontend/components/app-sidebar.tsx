@@ -1,15 +1,19 @@
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
   MessageSquare,
   Users,
   ShieldCheck,
   ChevronRight,
   Shield,
-} from "lucide-react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+  Upload,
+  FileText,
+  Database,
+} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 import {
   Sidebar,
@@ -23,19 +27,38 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarRail,
-} from "@/components/ui/sidebar"
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-import { NavUser } from "@/components/nav-user"
+} from "@/components/ui/collapsible";
+import { NavUser } from "@/components/nav-user";
+
+import bioTrendLogo from "@/public/bio-trend-logo.png";
 
 const navItems = [
   {
     title: "Chat",
     url: "/chat",
     icon: MessageSquare,
+  },
+  {
+    title: "Knowledge Base",
+    icon: Database,
+    items: [
+      {
+        title: "Upload",
+        url: "/upload",
+        icon: Upload,
+      },
+      {
+        title: "Documents",
+        url: "/documents",
+        icon: FileText,
+      },
+    ],
   },
   {
     title: "Admin",
@@ -53,27 +76,33 @@ const navItems = [
       },
     ],
   },
-]
+];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <MessageSquare className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">FDA Assistant</span>
-                  <span className="truncate text-xs">Regulatory RAG</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
+            <div className="flex items-center gap-2">
+              <SidebarMenuButton
+                size="lg"
+                asChild
+                className="flex-1 group-data-[collapsible=icon]:hidden"
+              >
+                <Link href="/">
+                  <Image
+                    src={bioTrendLogo}
+                    alt="Bio-Trend"
+                    width={436}
+                    className="w-full"
+                  />
+                </Link>
+              </SidebarMenuButton>
+              <SidebarTrigger className="ml-auto" />
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -82,7 +111,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {navItems.map((item) => {
             // If item has sub-items, render collapsible
             if ("items" in item && item.items) {
-              const isActive = pathname?.startsWith("/admin")
+              const isActive = item.items.some((subItem) =>
+                pathname?.startsWith(subItem.url)
+              );
               return (
                 <Collapsible
                   key={item.title}
@@ -116,7 +147,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     </CollapsibleContent>
                   </SidebarMenuItem>
                 </Collapsible>
-              )
+              );
             }
 
             // Regular menu item
@@ -133,7 +164,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            )
+            );
           })}
         </SidebarMenu>
       </SidebarContent>
@@ -142,5 +173,5 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  )
+  );
 }

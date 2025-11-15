@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Trash2, FileText, Loader2 } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Trash2, FileText, Loader2 } from "lucide-react";
 
 interface Document {
   id: string;
@@ -18,14 +18,15 @@ export function DocumentList() {
 
   const fetchDocuments = async () => {
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
       const response = await fetch(`${backendUrl}/documents`);
       if (response.ok) {
         const data = await response.json();
         setDocuments(data);
       }
     } catch (error) {
-      console.error('Failed to fetch documents:', error);
+      console.error("Failed to fetch documents:", error);
     } finally {
       setIsLoading(false);
     }
@@ -38,34 +39,35 @@ export function DocumentList() {
   const deleteDocument = async (id: string) => {
     setDeletingId(id);
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
       const response = await fetch(`${backendUrl}/documents/${id}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
-      
+
       if (response.ok) {
-        setDocuments(prev => prev.filter(doc => doc.id !== id));
+        setDocuments((prev) => prev.filter((doc) => doc.id !== id));
       }
     } catch (error) {
-      console.error('Failed to delete document:', error);
+      console.error("Failed to delete document:", error);
     } finally {
       setDeletingId(null);
     }
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -81,17 +83,21 @@ export function DocumentList() {
     return (
       <div className="text-center py-12">
         <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <p className="text-lg font-semibold text-gray-700">No documents uploaded</p>
+        <p className="text-lg font-semibold text-gray-700">
+          No documents uploaded
+        </p>
         <p className="text-sm text-gray-500 mt-2">
-          Upload FDA documents to get started
+          Upload documents to get started
         </p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <h2 className="text-xl font-bold text-gray-800 mb-4">Uploaded Documents</h2>
+    <div className="w-full">
+      <h2 className="text-xl font-bold text-gray-800 mb-4 px-6">
+        Uploaded Documents
+      </h2>
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">

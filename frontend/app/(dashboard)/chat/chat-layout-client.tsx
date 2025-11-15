@@ -74,18 +74,6 @@ export function ChatLayoutClient({ children }: ChatLayoutClientProps) {
               <Menu className="h-5 w-5" />
             )}
           </button>
-          <div className="flex items-center justify-between w-full">
-            <h1 className="text-lg font-semibold text-gray-900">
-              FDA RAG Assistant
-            </h1>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </button>
-          </div>
         </div>
         <main className="flex-1 overflow-hidden">{children}</main>
       </div>

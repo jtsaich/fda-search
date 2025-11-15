@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useCallback, useState } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Upload, File, X, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useCallback, useState } from "react";
+import { useDropzone } from "react-dropzone";
+import { Upload, File, X, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface UploadedFile {
   file: File;
-  status: 'pending' | 'uploading' | 'success' | 'error';
+  status: "pending" | "uploading" | "success" | "error";
   message?: string;
 }
 
@@ -16,84 +16,94 @@ export function DocumentUpload() {
   const [isUploading, setIsUploading] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const newFiles = acceptedFiles.map(file => ({
+    const newFiles = acceptedFiles.map((file) => ({
       file,
-      status: 'pending' as const,
+      status: "pending" as const,
     }));
-    setFiles(prev => [...prev, ...newFiles]);
+    setFiles((prev) => [...prev, ...newFiles]);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'application/pdf': ['.pdf'],
-      'text/plain': ['.txt'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      "application/pdf": [".pdf"],
+      "text/plain": [".txt"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        [".docx"],
     },
     multiple: true,
   });
 
   const uploadFiles = async () => {
     setIsUploading(true);
-    
+
     for (let i = 0; i < files.length; i++) {
-      if (files[i].status !== 'pending') continue;
-      
-      setFiles(prev => prev.map((f, idx) => 
-        idx === i ? { ...f, status: 'uploading' } : f
-      ));
+      if (files[i].status !== "pending") continue;
+
+      setFiles((prev) =>
+        prev.map((f, idx) => (idx === i ? { ...f, status: "uploading" } : f))
+      );
 
       const formData = new FormData();
-      formData.append('file', files[i].file);
+      formData.append("file", files[i].file);
 
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const backendUrl =
+          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
         const response = await fetch(`${backendUrl}/upload`, {
-          method: 'POST',
+          method: "POST",
           body: formData,
         });
 
         if (response.ok) {
           const data = await response.json();
-          setFiles(prev => prev.map((f, idx) => 
-            idx === i ? { ...f, status: 'success', message: data.message } : f
-          ));
+          setFiles((prev) =>
+            prev.map((f, idx) =>
+              idx === i ? { ...f, status: "success", message: data.message } : f
+            )
+          );
         } else {
-          throw new Error('Upload failed');
+          throw new Error("Upload failed");
         }
       } catch {
-        setFiles(prev => prev.map((f, idx) => 
-          idx === i ? { ...f, status: 'error', message: 'Upload failed' } : f
-        ));
+        setFiles((prev) =>
+          prev.map((f, idx) =>
+            idx === i ? { ...f, status: "error", message: "Upload failed" } : f
+          )
+        );
       }
     }
-    
+
     setIsUploading(false);
   };
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const pendingFiles = files.filter(f => f.status === 'pending');
+  const pendingFiles = files.filter((f) => f.status === "pending");
 
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div
         {...getRootProps()}
         className={cn(
-          'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors',
-          isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+          "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
+          isDragActive
+            ? "border-blue-500 bg-blue-50"
+            : "border-gray-300 hover:border-gray-400"
         )}
       >
         <input {...getInputProps()} />
         <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         {isDragActive ? (
-          <p className="text-lg font-semibold text-blue-600">Drop the files here...</p>
+          <p className="text-lg font-semibold text-blue-600">
+            Drop the files here...
+          </p>
         ) : (
           <div>
             <p className="text-lg font-semibold text-gray-700">
-              Drag & drop FDA documents here
+              Drag & drop documents here
             </p>
             <p className="text-sm text-gray-500 mt-2">
               or click to select files (PDF, TXT, DOCX)
@@ -120,16 +130,16 @@ export function DocumentUpload() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {uploadedFile.status === 'uploading' && (
+                {uploadedFile.status === "uploading" && (
                   <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
                 )}
-                {uploadedFile.status === 'success' && (
+                {uploadedFile.status === "success" && (
                   <span className="text-xs text-green-600">✓ Uploaded</span>
                 )}
-                {uploadedFile.status === 'error' && (
+                {uploadedFile.status === "error" && (
                   <span className="text-xs text-red-600">Failed</span>
                 )}
-                {uploadedFile.status === 'pending' && (
+                {uploadedFile.status === "pending" && (
                   <button
                     onClick={() => removeFile(index)}
                     className="p-1 hover:bg-gray-200 rounded"
@@ -140,7 +150,7 @@ export function DocumentUpload() {
               </div>
             </div>
           ))}
-          
+
           {pendingFiles.length > 0 && (
             <button
               onClick={uploadFiles}
@@ -153,7 +163,9 @@ export function DocumentUpload() {
                   Uploading...
                 </span>
               ) : (
-                `Upload ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''}`
+                `Upload ${pendingFiles.length} file${
+                  pendingFiles.length > 1 ? "s" : ""
+                }`
               )}
             </button>
           )}
