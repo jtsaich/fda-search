@@ -10,12 +10,12 @@ export default async function ChatLayout({
 }) {
   const supabase = await createClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 
-  return <ChatLayoutClient user={session.user}>{children}</ChatLayoutClient>;
+  return <ChatLayoutClient user={user}>{children}</ChatLayoutClient>;
 }

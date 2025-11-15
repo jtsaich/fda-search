@@ -25,6 +25,9 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const supabase = await createClient();
+
+  // Use getUser() for secure authentication check
+  // Note: We still need getSession() for the access_token to pass to SupabaseListener
   const {
     data: { session },
   } = await supabase.auth.getSession();

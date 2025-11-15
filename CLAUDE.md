@@ -123,7 +123,7 @@ See `CHAT_PERSISTENCE_SETUP.md` for Supabase setup instructions.
 
 ## Current Status
 
-**Chat Persistence Implemented** - Full chat history persistence using Supabase:
+**Chat Persistence & Authentication Implemented** - Full chat history persistence and role-based access control:
 1. ✅ Document upload and processing service implemented
 2. ✅ Embedding and vector storage with Pinecone
 3. ✅ RAG query logic with source tracking
@@ -131,8 +131,18 @@ See `CHAT_PERSISTENCE_SETUP.md` for Supabase setup instructions.
 5. ✅ Chat persistence with Supabase PostgreSQL
 6. ✅ Message history loads on page refresh
 7. ✅ RAG sources preserved in chat history
+8. ✅ User authentication with Supabase Auth
+9. ✅ Role-based access control (Admin, Researcher, Viewer)
+10. ✅ User management interface for admins
+
+**Role Management System:**
+- See [ROLE_MANAGEMENT_SUMMARY.md](ROLE_MANAGEMENT_SUMMARY.md) for complete implementation details
+- Quick start: [ROLE_MANAGEMENT_QUICKSTART.md](ROLE_MANAGEMENT_QUICKSTART.md)
+- Integration examples: [ROLE_INTEGRATION_EXAMPLES.md](ROLE_INTEGRATION_EXAMPLES.md)
+- Setup guide: [ROLE_MANAGEMENT_SETUP.md](ROLE_MANAGEMENT_SETUP.md)
 
 **Next Steps:**
-- Add chat list sidebar
-- Implement user authentication
+- Run role management database migration
+- Integrate role checks into document and chat operations
+- Add chat list sidebar with role-based visibility
 - Optimize with single-message requests
