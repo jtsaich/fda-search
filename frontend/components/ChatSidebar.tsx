@@ -124,7 +124,7 @@ export function ChatSidebar() {
       {/* Header */}
       <div className="p-4 border-b border-gray-200 bg-white">
         <Link
-          href="/chat"
+          href="/chat/new"
           className="flex items-center gap-2 w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
         >
           <Plus className="h-5 w-5" />
