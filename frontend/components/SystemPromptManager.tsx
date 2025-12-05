@@ -11,15 +11,16 @@ import {
 import { cn } from "@/lib/utils";
 import {
   AlertCircle,
-  Check,
   Loader2,
   Pencil,
   PlusCircle,
   RefreshCcw,
+  RotateCcw,
   Save,
   Settings,
   Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -48,8 +49,6 @@ export function SystemPromptManager({
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [managerOpen, setManagerOpen] = useState<boolean>(false);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
 
   const [isSavingPrompt, setIsSavingPrompt] = useState<boolean>(false);
   const [isCreatingPrompt, setIsCreatingPrompt] = useState<boolean>(false);
@@ -150,8 +149,6 @@ export function SystemPromptManager({
 
   const handleSelectPrompt = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value;
-    setActionMessage(null);
-    setActionError(null);
 
     if (value === CUSTOM_PROMPT_VALUE) {
       setSelectedPromptId(null);
@@ -167,20 +164,12 @@ export function SystemPromptManager({
     }
   };
 
-  const handleResetToDefault = () => {
-    setSelectedPromptId(null);
-    onSystemPromptChange(defaultPrompt);
-    setActionMessage("Reverted to default prompt");
-  };
-
   const handleSaveSelectedPrompt = async () => {
     if (!selectedPrompt || !hasSelectedPromptChanges) {
       return;
     }
 
     setIsSavingPrompt(true);
-    setActionMessage(null);
-    setActionError(null);
     try {
       const updated = await updateSystemPrompt(selectedPrompt.id, {
         content: systemPrompt,
@@ -190,10 +179,10 @@ export function SystemPromptManager({
           prompt.id === updated.id ? { ...prompt, ...updated } : prompt
         )
       );
-      setActionMessage("Persona updated");
+      toast.success("Persona updated");
     } catch (err) {
       console.error("Failed to update system prompt:", err);
-      setActionError(
+      toast.error(
         err instanceof Error ? err.message : "Failed to update persona"
       );
     } finally {
@@ -203,19 +192,17 @@ export function SystemPromptManager({
 
   const handleCreatePrompt = async (event: React.FormEvent) => {
     event.preventDefault();
-    setActionMessage(null);
-    setActionError(null);
 
     const trimmedName = creatingPrompt.name.trim();
     const trimmedContent = creatingPrompt.content.trim();
 
     if (!trimmedName) {
-      setActionError("Name is required");
+      toast.error("Name is required");
       return;
     }
 
     if (!trimmedContent) {
-      setActionError("Prompt content is required");
+      toast.error("Prompt content is required");
       return;
     }
 
@@ -232,10 +219,10 @@ export function SystemPromptManager({
       onSystemPromptChange(created.content);
       setCreatingPrompt({ name: "", description: "", content: "" });
       setManagerOpen(false);
-      setActionMessage("New persona created");
+      toast.success("New persona created");
     } catch (err) {
       console.error("Failed to create system prompt:", err);
-      setActionError(
+      toast.error(
         err instanceof Error ? err.message : "Failed to create persona"
       );
     } finally {
@@ -249,8 +236,6 @@ export function SystemPromptManager({
       name: prompt.name,
       description: prompt.description ?? "",
     });
-    setActionMessage(null);
-    setActionError(null);
   };
 
   const handleSaveDetails = async () => {
@@ -258,13 +243,11 @@ export function SystemPromptManager({
 
     const trimmedName = editingDetails.name.trim();
     if (!trimmedName) {
-      setActionError("Name is required");
+      toast.error("Name is required");
       return;
     }
 
     setSavingDetailsId(editingPromptId);
-    setActionMessage(null);
-    setActionError(null);
 
     try {
       const updated = await updateSystemPrompt(editingPromptId, {
@@ -284,10 +267,10 @@ export function SystemPromptManager({
       }
 
       setEditingPromptId(null);
-      setActionMessage("Persona details updated");
+      toast.success("Persona details updated");
     } catch (err) {
       console.error("Failed to update persona details:", err);
-      setActionError(
+      toast.error(
         err instanceof Error ? err.message : "Failed to update persona details"
       );
     } finally {
@@ -301,8 +284,6 @@ export function SystemPromptManager({
     }
 
     setDeletingPromptId(promptId);
-    setActionMessage(null);
-    setActionError(null);
 
     try {
       await deleteSystemPrompt(promptId);
@@ -326,10 +307,10 @@ export function SystemPromptManager({
         return filtered;
       });
 
-      setActionMessage("Persona deleted");
+      toast.success("Persona deleted");
     } catch (err) {
       console.error("Failed to delete persona:", err);
-      setActionError(
+      toast.error(
         err instanceof Error ? err.message : "Failed to delete persona"
       );
     } finally {
@@ -404,8 +385,6 @@ export function SystemPromptManager({
                     <textarea
                       value={systemPrompt}
                       onChange={(event) => {
-                        setActionMessage(null);
-                        setActionError(null);
                         onSystemPromptChange(event.target.value);
                       }}
                       placeholder="Enter your system prompt here..."
@@ -424,13 +403,45 @@ export function SystemPromptManager({
                       </p>
                     )}
                     {selectedPrompt && hasSelectedPromptChanges && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertCircle className="h-3.5 w-3.5" />
-                        Unsaved changes to{" "}
-                        <span className="font-medium">
-                          {selectedPrompt.name}
-                        </span>
-                      </p>
+                      <>
+                        <p className="text-xs text-amber-600 flex items-center gap-1">
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          Unsaved changes to{" "}
+                          <span className="font-medium">
+                            {selectedPrompt.name}
+                          </span>
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onSystemPromptChange(selectedPrompt.content);
+                            }}
+                            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Reset
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveSelectedPrompt}
+                            disabled={isSavingPrompt}
+                            className={cn(
+                              "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-white",
+                              isSavingPrompt
+                                ? "bg-gray-400"
+                                : "bg-green-600 hover:bg-green-700"
+                            )}
+                          >
+                            {isSavingPrompt ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Save className="h-3.5 w-3.5" />
+                            )}
+                            Save Changes
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
 
@@ -532,10 +543,26 @@ export function SystemPromptManager({
 
                   {/* Existing Personas List */}
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                      <Pencil className="h-4 w-4 text-purple-600" />
-                      Existing Personas
-                    </h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                        <Pencil className="h-4 w-4 text-purple-600" />
+                        Existing Personas
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => void fetchPrompts()}
+                        className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+                        title="Refresh personas from Supabase"
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCcw className="h-3.5 w-3.5" />
+                        )}
+                        Refresh
+                      </button>
+                    </div>
                     {systemPrompts.length === 0 ? (
                       <p className="text-sm text-gray-500">
                         No personas saved yet. Create one to reuse it across
@@ -671,72 +698,10 @@ export function SystemPromptManager({
                     )}
                   </div>
 
-                  {/* Action Messages */}
-                  {(actionMessage || actionError) && (
-                    <div
-                      className={cn(
-                        "flex items-center gap-2 text-sm",
-                        actionError ? "text-red-600" : "text-green-600"
-                      )}
-                    >
-                      {actionError ? (
-                        <AlertCircle className="h-4 w-4" />
-                      ) : (
-                        <Check className="h-4 w-4" />
-                      )}
-                      {actionError ?? actionMessage}
-                    </div>
-                  )}
                 </div>
               </DialogContent>
             </Dialog>
-
-            <button
-              type="button"
-              onClick={() => void fetchPrompts()}
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-              title="Refresh personas from Supabase"
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCcw className="h-4 w-4" />
-              )}
-              Refresh
-            </button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleResetToDefault}
-            className="text-xs font-medium text-blue-700 hover:text-blue-900 underline"
-          >
-            Reset to default
-          </button>
-
-          {selectedPrompt && hasSelectedPromptChanges && (
-            <button
-              type="button"
-              onClick={handleSaveSelectedPrompt}
-              disabled={isSavingPrompt}
-              className={cn(
-                "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-white",
-                isSavingPrompt
-                  ? "bg-gray-400"
-                  : "bg-green-600 hover:bg-green-700"
-              )}
-            >
-              {isSavingPrompt ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              Save Changes
-            </button>
-          )}
         </div>
       </div>
 
@@ -744,32 +709,6 @@ export function SystemPromptManager({
         <div className="flex items-center gap-2 text-sm text-red-600">
           <AlertCircle className="h-4 w-4" />
           {loadError}
-        </div>
-      )}
-
-      {/* Status Messages */}
-      {(actionMessage || actionError) && !managerOpen && (
-        <div
-          className={cn(
-            "flex items-center gap-2 text-sm",
-            actionError ? "text-red-600" : "text-green-600"
-          )}
-        >
-          {actionError ? (
-            <AlertCircle className="h-4 w-4" />
-          ) : (
-            <Check className="h-4 w-4" />
-          )}
-          {actionError ?? actionMessage}
-        </div>
-      )}
-
-      {/* Compact Status Indicator */}
-      {selectedPrompt && (
-        <div className="text-xs text-gray-600">
-          {hasSelectedPromptChanges && (
-            <span className="text-amber-600">● Unsaved changes</span>
-          )}
         </div>
       )}
     </div>

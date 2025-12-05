@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { createClient } from "@/utils/supabase/server";
 import { SupabaseListener } from "@/components/SupabaseListener";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,6 +40,7 @@ export default async function RootLayout({
       >
         <SupabaseListener serverAccessToken={session?.access_token} />
         {children}
+        <Toaster />
       </body>
     </html>
   );
