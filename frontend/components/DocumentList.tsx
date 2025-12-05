@@ -36,7 +36,11 @@ export function DocumentList() {
     fetchDocuments();
   }, []);
 
-  const deleteDocument = async (id: string) => {
+  const deleteDocument = async (id: string, filename: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${filename}"? This will remove all associated vectors from the database. This action cannot be undone.`)) {
+      return;
+    }
+
     setDeletingId(id);
     try {
       const backendUrl =
@@ -47,9 +51,13 @@ export function DocumentList() {
 
       if (response.ok) {
         setDocuments((prev) => prev.filter((doc) => doc.id !== id));
+      } else {
+        const error = await response.json().catch(() => ({ detail: "Unknown error" }));
+        alert(`Failed to delete document: ${error.detail}`);
       }
     } catch (error) {
       console.error("Failed to delete document:", error);
+      alert("Failed to delete document. Please try again.");
     } finally {
       setDeletingId(null);
     }
@@ -122,14 +130,14 @@ export function DocumentList() {
           <tbody className="bg-white divide-y divide-gray-200">
             {documents.map((doc) => (
               <tr key={doc.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
+                <td className="px-6 py-4">
+                  <div className="flex items-center max-w-md">
+                    <FileText className="h-5 w-5 text-gray-400 mr-3 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-gray-900 truncate" title={doc.filename}>
                         {doc.filename}
                       </div>
-                      <div className="text-xs text-gray-500">ID: {doc.id}</div>
+                      <div className="text-xs text-gray-500 truncate" title={doc.id}>ID: {doc.id}</div>
                     </div>
                   </div>
                 </td>
@@ -144,14 +152,21 @@ export function DocumentList() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
-                    onClick={() => deleteDocument(doc.id)}
+                    onClick={() => deleteDocument(doc.id, doc.filename)}
                     disabled={deletingId === doc.id}
-                    className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:text-white hover:bg-red-600 border border-red-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Delete document"
                   >
                     {deletingId === doc.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Deleting...</span>
+                      </>
                     ) : (
-                      <Trash2 className="h-4 w-4" />
+                      <>
+                        <Trash2 className="h-4 w-4" />
+                        <span>Delete</span>
+                      </>
                     )}
                   </button>
                 </td>
