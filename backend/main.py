@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 from dotenv import load_dotenv
 import logging
+import base64
 
 from services.document_service import DocumentService
 from services.vector_service import VectorService
@@ -18,6 +19,8 @@ from services.chat_protocol import (
     ChatRequest,
     stream_text,
 )
+from routes.documents import router as documents_router
+from routes.health import router as health_router
 
 # Configure logging to use stdout instead of stderr
 import sys
@@ -82,12 +85,9 @@ class DirectQueryResponse(BaseModel):
     answer: str
 
 
-class Document(BaseModel):
-    id: str
-    filename: str
-    upload_date: str
-    size: int
-    chunk_count: int
+# Include routers
+app.include_router(documents_router)
+app.include_router(health_router)
 
 
 @app.get("/")
@@ -97,7 +97,9 @@ async def root():
 
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
-    if not file.filename or not file.filename.endswith((".pdf", ".txt", ".docx")):
+    if not file.filename or not file.filename.endswith(
+        (".pdf", ".txt", ".docx", ".csv", ".xlsx")
+    ):
         raise HTTPException(status_code=400, detail="Unsupported file type")
 
     file_path = None
@@ -236,6 +238,37 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                                 }
                             )
 
+                        # Handle Text, CSV, XLSX, DOCX files by extracting text
+                        elif (
+                            media_type.startswith("text/")
+                            or media_type
+                            == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            or media_type
+                            == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            or filename.endswith((".txt", ".csv", ".xlsx", ".docx"))
+                        ):
+                            try:
+                                # Data URL format: data:[<mediatype>][;base64],<data>
+                                if "," in url:
+                                    header, data = url.split(",", 1)
+                                    file_bytes = base64.b64decode(data)
+
+                                    extracted_text = (
+                                        await document_service.extract_text_from_bytes(
+                                            file_bytes, filename
+                                        )
+                                    )
+
+                                    if extracted_text:
+                                        content_parts.append(
+                                            {
+                                                "type": "text",
+                                                "text": f"Content of {filename}:\n{extracted_text}",
+                                            }
+                                        )
+                            except Exception as e:
+                                logger.error(f"Error processing file {filename}: {e}")
+
             # If no parts, extract text from content field
             if not content_parts:
                 text_content = msg.get_text_content()
@@ -363,132 +396,6 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
 
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/documents", response_model=List[Document])
-async def list_documents():
-    try:
-        # Get documents from vector database
-        documents = await vector_service.list_documents()
-
-        # Convert to Document model format
-        document_list = []
-        for doc in documents:
-            document_list.append(
-                Document(
-                    id=doc["id"],
-                    filename=doc["filename"],
-                    upload_date=doc["upload_date"],
-                    size=doc["size"],
-                    chunk_count=doc["chunk_count"],
-                )
-            )
-
-        return document_list
-    except Exception as e:
-        # Return empty list if error occurs
-        print(f"Error listing documents: {e}")
-        return []
-
-
-@app.delete("/documents/{document_id}")
-async def delete_document(document_id: str):
-    try:
-        # Delete document vectors from Pinecone
-        result = await vector_service.delete_document_vectors(document_id)
-
-        if result.get("status") == "deleted":
-            return {"message": f"Document {document_id} deleted successfully"}
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to delete document: {result.get('message', 'Unknown error')}",
-            )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error deleting document: {str(e)}"
-        )
-
-
-@app.post("/admin/recreate-index")
-async def recreate_pinecone_index():
-    """Delete and recreate Pinecone index (USE WITH CAUTION - deletes all vectors!)"""
-    try:
-        if not vector_service.pc:
-            raise HTTPException(status_code=500, detail="Pinecone not configured")
-
-        index_name = vector_service.index_name
-
-        # Delete existing index if it exists
-        existing_indexes = [index["name"] for index in vector_service.pc.list_indexes()]
-        if index_name in existing_indexes:
-            vector_service.pc.delete_index(index_name)
-            logger.info(f"Deleted existing index: {index_name}")
-
-        # Create new index with 768 dimensions
-        vector_service.pc.create_index(
-            name=index_name,
-            dimension=768,
-            metric="cosine",
-            spec={"serverless": {"cloud": "aws", "region": "us-east-1"}},
-        )
-
-        # Reconnect to the new index
-        vector_service.index = vector_service.pc.Index(index_name)
-
-        logger.info(f"Created new index: {index_name} with 768 dimensions")
-        return {
-            "message": "Index recreated successfully",
-            "index_name": index_name,
-            "dimension": 768,
-            "note": "Please re-upload all documents",
-        }
-    except Exception as e:
-        logger.error(f"Error recreating index: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/health/pinecone")
-async def test_pinecone():
-    """Test Pinecone connection and index status"""
-    if not vector_service.pc:
-        return {"status": "error", "message": "Pinecone not initialized"}
-
-    try:
-        indexes = [index.name for index in vector_service.pc.list_indexes()]
-        return {
-            "status": "connected",
-            "indexes": indexes,
-            "target_index": vector_service.index_name,
-            "index_exists": vector_service.index_name in indexes,
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
-@app.get("/health/embeddings")
-async def test_embeddings():
-    """Test sentence-transformers embeddings"""
-    if not embedding_service.model:
-        return {"status": "error", "message": "Sentence transformer model not loaded"}
-
-    try:
-        test_text = "This is a test document for FDA regulatory guidance."
-        embedding = await embedding_service.generate_embedding(test_text)
-        return {
-            "status": "success",
-            "model": embedding_service.model_id,
-            "embedding_dimension": len(embedding),
-            "test_text": test_text,
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
-@app.get("/health/llm")
-async def test_llm():
-    """Test OpenRouter LLM connection"""
-    return await llm_service.test_connection()
 
 
 if __name__ == "__main__":

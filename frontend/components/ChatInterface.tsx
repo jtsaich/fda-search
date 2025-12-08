@@ -316,7 +316,7 @@ export function ChatInterface({
               }
             }}
             multiple
-            accept=".pdf,.txt,.docx,.doc,.png,.jpg,.jpeg"
+            accept=".pdf,.txt,.docx,.doc,.png,.jpg,.jpeg,.csv,.xlsx"
             className="hidden"
             id="file-upload"
           />

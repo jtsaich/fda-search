@@ -4,6 +4,9 @@ from datetime import datetime
 import PyPDF2
 from docx import Document
 import tiktoken
+import csv
+import openpyxl
+import io
 
 
 class DocumentService:
@@ -33,6 +36,10 @@ class DocumentService:
         elif filename.endswith(".txt"):
             with open(file_path, "r", encoding="utf-8") as f:
                 return f.read()
+        elif filename.endswith(".csv"):
+            return self._extract_csv_text(file_path)
+        elif filename.endswith(".xlsx"):
+            return self._extract_xlsx_text(file_path)
         elif filename.endswith(".docx"):
             return self._extract_docx_text(file_path)
         else:
@@ -52,6 +59,69 @@ class DocumentService:
         """Extract text from DOCX file"""
         doc = Document(file_path)
         return "\n".join([paragraph.text for paragraph in doc.paragraphs])
+
+    def _extract_csv_text(self, file_path: str) -> str:
+        """Extract text from CSV file"""
+        text = []
+        with open(file_path, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                text.append(", ".join(row))
+        return "\n".join(text)
+
+    def _extract_xlsx_text(self, file_path: str) -> str:
+        """Extract text from XLSX file"""
+        text = []
+        workbook = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+        for sheet in workbook.worksheets:
+            text.append(f"Sheet: {sheet.title}")
+            for row in sheet.iter_rows(values_only=True):
+                # Filter out None values and convert to string
+                row_text = [str(cell) for cell in row if cell is not None]
+                if row_text:
+                    text.append(", ".join(row_text))
+        return "\n".join(text)
+
+    async def extract_text_from_bytes(self, file_data: bytes, filename: str) -> str:
+        """Extract text from file bytes (for in-memory processing)"""
+        if filename.endswith(".pdf"):
+            # PyPDF2 can read from BytesIO
+            pdf_file = io.BytesIO(file_data)
+            text = ""
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            for page in pdf_reader.pages:
+                text += page.extract_text()
+            return text
+
+        elif filename.endswith(".txt"):
+            return file_data.decode("utf-8")
+
+        elif filename.endswith(".csv"):
+            text_data = file_data.decode("utf-8")
+            f = io.StringIO(text_data)
+            reader = csv.reader(f)
+            lines = [", ".join(row) for row in reader]
+            return "\n".join(lines)
+
+        elif filename.endswith(".xlsx"):
+            xlsx_file = io.BytesIO(file_data)
+            workbook = openpyxl.load_workbook(xlsx_file, read_only=True, data_only=True)
+            text = []
+            for sheet in workbook.worksheets:
+                text.append(f"Sheet: {sheet.title}")
+                for row in sheet.iter_rows(values_only=True):
+                    row_text = [str(cell) for cell in row if cell is not None]
+                    if row_text:
+                        text.append(", ".join(row_text))
+            return "\n".join(text)
+
+        elif filename.endswith(".docx"):
+            docx_file = io.BytesIO(file_data)
+            doc = Document(docx_file)
+            return "\n".join([paragraph.text for paragraph in doc.paragraphs])
+
+        else:
+            raise ValueError(f"Unsupported file type: {filename}")
 
     def _chunk_text(
         self, text: str, chunk_size: int = 512, overlap: int = 50

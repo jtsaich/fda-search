@@ -30,6 +30,10 @@ export function DocumentUpload() {
       "text/plain": [".txt"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         [".docx"],
+      "text/csv": [".csv"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+        ".xlsx",
+      ],
     },
     multiple: true,
   });
@@ -106,7 +110,7 @@ export function DocumentUpload() {
               Drag & drop documents here
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              or click to select files (PDF, TXT, DOCX)
+              or click to select files (PDF, TXT, DOCX, CSV, XLSX)
             </p>
           </div>
         )}
