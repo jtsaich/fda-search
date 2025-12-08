@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "台耀 POC",
+  title: "Aves AI Hub",
   description: "",
 };
 
