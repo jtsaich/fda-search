@@ -93,6 +93,7 @@ def stream_text(
         stream=True,
         temperature=temperature,
         max_tokens=1000,
+        stream_options={"include_usage": True},
     )
 
     # When protocol is set to "text", send plain text chunks
@@ -108,6 +109,7 @@ def stream_text(
     elif protocol == "data":
         text_id = str(uuid.uuid4())
         text_started = False
+        usage_data = None
 
         try:
             # Send source-document parts BEFORE text starts (if provided)
@@ -136,6 +138,15 @@ def stream_text(
                     yield f"data: {data}\n\n"
 
             for chunk in stream:
+                # Capture usage data from the final chunk (when include_usage is enabled)
+                if hasattr(chunk, "usage") and chunk.usage is not None:
+                    usage_data = {
+                        "prompt_tokens": chunk.usage.prompt_tokens,
+                        "completion_tokens": chunk.usage.completion_tokens,
+                        "total_tokens": chunk.usage.total_tokens,
+                    }
+                    logger.info(f"Token usage: {usage_data}")
+
                 if not chunk.choices or len(chunk.choices) == 0:
                     continue
 
@@ -165,6 +176,11 @@ def stream_text(
             # Send text-end after all text deltas
             if text_started:
                 data = json.dumps({"type": "text-end", "id": text_id})
+                yield f"data: {data}\n\n"
+
+            # Send usage data if available (before finish)
+            if usage_data and usage_data.get("prompt_tokens") is not None:
+                data = json.dumps({"type": "data-usage", "data": usage_data})
                 yield f"data: {data}\n\n"
 
             # Send finish-message

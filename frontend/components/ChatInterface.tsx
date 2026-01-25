@@ -33,6 +33,13 @@ interface SourceMetadata {
   };
 }
 
+// Token usage data from the backend
+interface UsageData {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
 const DEFAULT_SYSTEM_PROMPT =
   "You are an expert AI researcher in pharmaceutical development, specializing in process optimization and automation.";
 
@@ -167,6 +174,22 @@ export function ChatInterface({
                             {part.text}
                           </ReactMarkdown>
                         ))}
+
+                      {/* Render token usage */}
+                      {message.parts
+                        .filter((part) => part.type === "data-usage")
+                        .map((part, idx) => {
+                          const usage = (part as { type: string; data: UsageData }).data;
+                          return (
+                            <div
+                              key={idx}
+                              className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500 flex gap-3"
+                            >
+                              <span>Input: {usage.prompt_tokens} tokens</span>
+                              <span>Output: {usage.completion_tokens} tokens</span>
+                            </div>
+                          );
+                        })}
 
                       {/* Render source-document parts */}
                       {message.parts.filter(

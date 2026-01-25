@@ -9,6 +9,32 @@ interface MessagePart {
   [key: string]: unknown;
 }
 
+// Token usage data structure
+interface UsageData {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+// Extract token usage from message parts
+function extractTokenUsage(msg: UIMessage): UsageData | null {
+  if (!msg.parts) return null;
+
+  const usagePart = msg.parts.find(
+    (part: MessagePart) => part.type === "data-usage"
+  ) as { type: string; data?: UsageData } | undefined;
+
+  if (usagePart?.data) {
+    return {
+      prompt_tokens: usagePart.data.prompt_tokens,
+      completion_tokens: usagePart.data.completion_tokens,
+      total_tokens: usagePart.data.total_tokens,
+    };
+  }
+
+  return null;
+}
+
 async function getAuthedClient() {
   const supabase = createClient();
   const {
@@ -95,14 +121,20 @@ export async function saveChat({
     throw new Error("Failed to delete old messages");
   }
 
-  // Insert all messages with sequence numbers
-  const messagesWithSequence = messages.map((msg, idx) => ({
-    id: msg.id,
-    chat_id: chatId,
-    role: msg.role,
-    content: msg, // Store the entire UIMessage object as JSONB
-    sequence_number: idx,
-  }));
+  // Insert all messages with sequence numbers and token usage
+  const messagesWithSequence = messages.map((msg, idx) => {
+    const usage = extractTokenUsage(msg);
+    return {
+      id: msg.id,
+      chat_id: chatId,
+      role: msg.role,
+      content: msg, // Store the entire UIMessage object as JSONB
+      sequence_number: idx,
+      prompt_tokens: usage?.prompt_tokens ?? null,
+      completion_tokens: usage?.completion_tokens ?? null,
+      total_tokens: usage?.total_tokens ?? null,
+    };
+  });
 
   const { error: insertError } = await supabase
     .from("messages")
