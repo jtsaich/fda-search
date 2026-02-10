@@ -376,13 +376,19 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
         model = request.model or "google/gemma-3-27b-it:free"
         max_context = get_model_limit(model)
         current_tokens = count_message_tokens(openai_messages)
+        logger.info(f"Token count before truncation: {current_tokens}, limit: {max_context}")
 
         if current_tokens > max_context - 1000:
             logger.warning(
                 f"Token count {current_tokens} exceeds limit {max_context}, truncating..."
             )
             openai_messages = truncate_messages_to_fit(openai_messages, max_context)
-            logger.info(f"Truncated to {count_message_tokens(openai_messages)} tokens")
+            final_tokens = count_message_tokens(openai_messages)
+            logger.info(f"Truncated to {final_tokens} tokens, {len(openai_messages)} messages")
+
+            # Log message roles for debugging
+            roles = [msg.get("role") for msg in openai_messages]
+            logger.info(f"Message roles after truncation: {roles}")
 
         response = StreamingResponse(
             stream_text(

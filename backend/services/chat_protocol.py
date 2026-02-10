@@ -62,14 +62,34 @@ def truncate_messages_to_fit(
 
     system_tokens = count_message_tokens([system_msg]) if system_msg else 0
 
-    # If system message too large, truncate its content
-    if system_msg and system_tokens > available:
+    # Always ensure we keep at least the last user message
+    last_user_msg = None
+    for msg in reversed(conversation):
+        if msg.get("role") == "user":
+            last_user_msg = msg
+            break
+
+    last_user_tokens = count_message_tokens([last_user_msg]) if last_user_msg else 0
+
+    # If system message too large, truncate its content but keep last user message
+    if system_msg and system_tokens > available - last_user_tokens:
         encoder = tiktoken.get_encoding("cl100k_base")
         content = system_msg.get("content", "")
         tokens = encoder.encode(content)
-        truncated = encoder.decode(tokens[: available - 100])  # Leave margin
-        system_msg = {"role": "system", "content": truncated}
-        return [system_msg]
+        # Leave room for last user message
+        max_system_tokens = available - last_user_tokens - 100
+        if max_system_tokens > 0:
+            truncated = encoder.decode(tokens[:max_system_tokens])
+            system_msg = {"role": "system", "content": truncated}
+        else:
+            system_msg = None
+
+        result = []
+        if system_msg:
+            result.append(system_msg)
+        if last_user_msg:
+            result.append(last_user_msg)
+        return result
 
     remaining = available - system_tokens
 
@@ -80,6 +100,10 @@ def truncate_messages_to_fit(
         if msg_tokens <= remaining:
             result.insert(0, msg)
             remaining -= msg_tokens
+
+    # Ensure at least last user message is included
+    if last_user_msg and last_user_msg not in result:
+        result.append(last_user_msg)
 
     if system_msg:
         result.insert(0, system_msg)
