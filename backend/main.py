@@ -18,6 +18,9 @@ from services.llm_service import LLMService
 from services.chat_protocol import (
     ChatRequest,
     stream_text,
+    count_message_tokens,
+    truncate_messages_to_fit,
+    get_model_limit,
 )
 from routes.documents import router as documents_router
 from routes.health import router as health_router
@@ -368,6 +371,18 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
 
                     except Exception as e:
                         logger.warning(f"RAG retrieval failed: {str(e)}")
+
+        # Token budget check - truncate if needed (silent truncation)
+        model = request.model or "google/gemma-3-27b-it:free"
+        max_context = get_model_limit(model)
+        current_tokens = count_message_tokens(openai_messages)
+
+        if current_tokens > max_context - 1000:
+            logger.warning(
+                f"Token count {current_tokens} exceeds limit {max_context}, truncating..."
+            )
+            openai_messages = truncate_messages_to_fit(openai_messages, max_context)
+            logger.info(f"Truncated to {count_message_tokens(openai_messages)} tokens")
 
         response = StreamingResponse(
             stream_text(

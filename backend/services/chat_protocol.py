@@ -8,8 +8,83 @@ import json
 import logging
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
+import tiktoken
 
 logger = logging.getLogger(__name__)
+
+# Model context limits
+MODEL_CONTEXT_LIMITS = {
+    "google/gemma-3-27b-it:free": 131072,
+    "anthropic/claude-3.5-sonnet": 200000,
+    "openai/gpt-4o": 128000,
+    "default": 100000,
+}
+
+
+def get_model_limit(model: str) -> int:
+    """Get the context token limit for a model."""
+    return MODEL_CONTEXT_LIMITS.get(model, MODEL_CONTEXT_LIMITS["default"])
+
+
+def count_message_tokens(messages: list) -> int:
+    """Count tokens in message list using tiktoken."""
+    encoder = tiktoken.get_encoding("cl100k_base")
+    total = 0
+    for msg in messages:
+        total += 4  # role overhead
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            total += len(encoder.encode(content))
+        elif isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "text":
+                    total += len(encoder.encode(part.get("text", "")))
+                elif isinstance(part, dict) and part.get("type") == "image_url":
+                    total += 85  # image token estimate
+    total += 2  # reply priming
+    return total
+
+
+def truncate_messages_to_fit(
+    messages: list, max_tokens: int, reserved: int = 1000
+) -> list:
+    """Truncate messages to fit limit, preserving system msg and recent messages."""
+    available = max_tokens - reserved
+
+    # Separate system message
+    system_msg = None
+    conversation = []
+    for msg in messages:
+        if msg.get("role") == "system":
+            system_msg = msg
+        else:
+            conversation.append(msg)
+
+    system_tokens = count_message_tokens([system_msg]) if system_msg else 0
+
+    # If system message too large, truncate its content
+    if system_msg and system_tokens > available:
+        encoder = tiktoken.get_encoding("cl100k_base")
+        content = system_msg.get("content", "")
+        tokens = encoder.encode(content)
+        truncated = encoder.decode(tokens[: available - 100])  # Leave margin
+        system_msg = {"role": "system", "content": truncated}
+        return [system_msg]
+
+    remaining = available - system_tokens
+
+    # Keep most recent messages that fit
+    result = []
+    for msg in reversed(conversation):
+        msg_tokens = count_message_tokens([msg])
+        if msg_tokens <= remaining:
+            result.insert(0, msg)
+            remaining -= msg_tokens
+
+    if system_msg:
+        result.insert(0, system_msg)
+
+    return result
 
 
 class ClientAttachment(BaseModel):
