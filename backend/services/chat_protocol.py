@@ -184,11 +184,19 @@ def _create_stream(client, model: str, messages: list, temperature: float):
         )
     except Exception as e:
         error_str = str(e).lower()
-        # Check if it's a model availability error
-        if "unavailable" in error_str or "not found" in error_str or "does not exist" in error_str:
+        # Check if it's a model availability or rate limit error
+        should_fallback = (
+            "unavailable" in error_str
+            or "not found" in error_str
+            or "does not exist" in error_str
+            or "rate-limited" in error_str
+            or "rate limit" in error_str
+            or "429" in error_str
+        )
+        if should_fallback:
             fallback = MODEL_FALLBACKS.get(model)
             if fallback:
-                logger.warning(f"Model {model} unavailable, falling back to {fallback}")
+                logger.warning(f"Model {model} error: {e}, falling back to {fallback}")
                 return client.chat.completions.create(
                     model=fallback,
                     messages=messages,
