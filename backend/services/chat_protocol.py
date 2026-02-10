@@ -16,14 +16,16 @@ logger = logging.getLogger(__name__)
 MODEL_CONTEXT_LIMITS = {
     "google/gemma-3-27b-it:free": 131072,
     "google/gemma-3-27b-it": 131072,
+    "google/gemini-3-flash-preview": 1048576,
     "anthropic/claude-3.5-sonnet": 200000,
     "openai/gpt-4o": 128000,
     "default": 100000,
 }
 
 # Fallback models when primary model is unavailable
+# Note: gemma-3-27b-it doesn't support system prompts, so use a different fallback
 MODEL_FALLBACKS = {
-    "google/gemma-3-27b-it:free": "google/gemma-3-27b-it",
+    "google/gemma-3-27b-it:free": "google/gemini-3-flash-preview",
 }
 
 
