@@ -26,6 +26,7 @@ MODEL_CONTEXT_LIMITS = {
 # Note: gemma-3-27b-it doesn't support system prompts, so use a different fallback
 MODEL_FALLBACKS = {
     "google/gemma-3-27b-it:free": "google/gemini-3-flash-preview",
+    "google/gemma-3-27b-it": "google/gemini-3-flash-preview",
 }
 
 
@@ -186,7 +187,7 @@ def _create_stream(client, model: str, messages: list, temperature: float):
         )
     except Exception as e:
         error_str = str(e).lower()
-        # Check if it's a model availability or rate limit error
+        # Check if it's a model availability, rate limit, or capability error
         should_fallback = (
             "unavailable" in error_str
             or "not found" in error_str
@@ -194,6 +195,8 @@ def _create_stream(client, model: str, messages: list, temperature: float):
             or "rate-limited" in error_str
             or "rate limit" in error_str
             or "429" in error_str
+            or "developer instruction is not enabled" in error_str
+            or "not enabled" in error_str
         )
         if should_fallback:
             fallback = MODEL_FALLBACKS.get(model)
