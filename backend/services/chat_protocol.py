@@ -15,9 +15,15 @@ logger = logging.getLogger(__name__)
 # Model context limits
 MODEL_CONTEXT_LIMITS = {
     "google/gemma-3-27b-it:free": 131072,
+    "google/gemma-3-27b-it": 131072,
     "anthropic/claude-3.5-sonnet": 200000,
     "openai/gpt-4o": 128000,
     "default": 100000,
+}
+
+# Fallback models when primary model is unavailable
+MODEL_FALLBACKS = {
+    "google/gemma-3-27b-it:free": "google/gemma-3-27b-it",
 }
 
 
@@ -165,6 +171,35 @@ class ChatRequest(BaseModel):
 available_tools = {}
 
 
+def _create_stream(client, model: str, messages: list, temperature: float):
+    """Create a streaming chat completion, with fallback on model unavailability."""
+    try:
+        return client.chat.completions.create(
+            model=model,
+            messages=messages,
+            stream=True,
+            temperature=temperature,
+            max_tokens=1000,
+            stream_options={"include_usage": True},
+        )
+    except Exception as e:
+        error_str = str(e).lower()
+        # Check if it's a model availability error
+        if "unavailable" in error_str or "not found" in error_str or "does not exist" in error_str:
+            fallback = MODEL_FALLBACKS.get(model)
+            if fallback:
+                logger.warning(f"Model {model} unavailable, falling back to {fallback}")
+                return client.chat.completions.create(
+                    model=fallback,
+                    messages=messages,
+                    stream=True,
+                    temperature=temperature,
+                    max_tokens=1000,
+                    stream_options={"include_usage": True},
+                )
+        raise
+
+
 def stream_text(
     client,
     messages: List[Dict[str, Any]],
@@ -186,14 +221,7 @@ def stream_text(
     """
     import uuid
 
-    stream = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        stream=True,
-        temperature=temperature,
-        max_tokens=1000,
-        stream_options={"include_usage": True},
-    )
+    stream = _create_stream(client, model, messages, temperature)
 
     # When protocol is set to "text", send plain text chunks
     if protocol == "text":
