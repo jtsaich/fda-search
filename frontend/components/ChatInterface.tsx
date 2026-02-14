@@ -16,6 +16,7 @@ import remarkGfm from "remark-gfm";
 import { DefaultChatTransport, UIMessage } from "ai";
 import { saveChat } from "@/lib/chat-store";
 import { SystemPromptManager } from "./SystemPromptManager";
+import { ChartRenderer } from "./ChartRenderer";
 
 interface ChatInterfaceProps {
   id?: string;
@@ -166,14 +167,21 @@ export function ChatInterface({
                 >
                   {message.role === "assistant" ? (
                     <>
-                      {/* Render text content */}
+                      {/* Render text content (strip CHART_SPEC blocks) */}
                       {message.parts
                         .filter((part) => part.type === "text")
-                        .map((part, idx) => (
-                          <ReactMarkdown key={idx} remarkPlugins={[remarkGfm]}>
-                            {part.text}
-                          </ReactMarkdown>
-                        ))}
+                        .map((part, idx) => {
+                          const cleaned = part.text.replace(
+                            /CHART_SPEC:\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g,
+                            ""
+                          ).trim();
+                          if (!cleaned) return null;
+                          return (
+                            <ReactMarkdown key={idx} remarkPlugins={[remarkGfm]}>
+                              {cleaned}
+                            </ReactMarkdown>
+                          );
+                        })}
 
                       {/* Render token usage */}
                       {message.parts
@@ -188,6 +196,27 @@ export function ChatInterface({
                               <span>Input: {usage.prompt_tokens} tokens</span>
                               <span>Output: {usage.completion_tokens} tokens</span>
                             </div>
+                          );
+                        })}
+
+                      {/* Render chart-data parts (AI SDK DataUIPart: chart info is in part.data) */}
+                      {message.parts
+                        .filter((part) => part.type === "data-chart")
+                        .map((part, idx) => {
+                          const dataPart = part as unknown as {
+                            type: string;
+                            id?: string;
+                            data: {
+                              chartType: string;
+                              title: string;
+                              data: Record<string, unknown>[];
+                              xAxis: string;
+                              yAxis: string | string[];
+                              filename?: string;
+                            };
+                          };
+                          return (
+                            <ChartRenderer key={dataPart.id || idx} chart={dataPart.data} />
                           );
                         })}
 

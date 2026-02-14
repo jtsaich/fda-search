@@ -15,6 +15,7 @@ from services.document_service import DocumentService
 from services.vector_service import VectorService
 from services.embedding_service import EmbeddingService
 from services.llm_service import LLMService
+from services.excel_service import ExcelService
 from services.chat_protocol import (
     ChatRequest,
     stream_text,
@@ -42,6 +43,7 @@ document_service = DocumentService()
 vector_service = VectorService()
 embedding_service = EmbeddingService()
 llm_service = LLMService()
+excel_service = ExcelService()
 
 app = FastAPI(title="FDA RAG API", version="1.0.0")
 
@@ -256,6 +258,29 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                                     header, data = url.split(",", 1)
                                     file_bytes = base64.b64decode(data)
 
+                                    # For Excel/CSV files, also extract structured data for charts
+                                    is_spreadsheet = (
+                                        media_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                        or media_type == "text/csv"
+                                        or filename.endswith((".xlsx", ".csv"))
+                                    )
+                                    if is_spreadsheet:
+                                        try:
+                                            structured = excel_service.extract_structured_data(file_bytes, filename)
+                                            summary = excel_service.generate_data_summary(structured)
+                                            content_parts.append(
+                                                {
+                                                    "type": "text",
+                                                    "text": f"Structured data from {filename}:\n{summary}",
+                                                }
+                                            )
+                                            # Store for chart prompt injection
+                                            if not hasattr(request, '_excel_data'):
+                                                request._excel_data = []
+                                            request._excel_data.append(structured)
+                                        except Exception as e:
+                                            logger.warning(f"Structured extraction failed for {filename}, falling back to text: {e}")
+
                                     extracted_text = (
                                         await document_service.extract_text_from_bytes(
                                             file_bytes, filename
@@ -372,6 +397,48 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                     except Exception as e:
                         logger.warning(f"RAG retrieval failed: {str(e)}")
 
+        # Inject chart generation instructions when Excel data is attached
+        excel_data_list = getattr(request, '_excel_data', None)
+        if excel_data_list:
+            import json as json_module
+            chart_instruction = (
+                "\n\nIMPORTANT: When the user asks you to create a chart, graph, or visualization from the attached Excel data, "
+                "you MUST include a chart specification block in your response using exactly this format:\n"
+                "CHART_SPEC:{\"chartType\":\"bar\",\"title\":\"Chart Title\",\"xAxis\":\"column_name\",\"yAxis\":\"column_name\",\"data\":[{\"col1\":val1,\"col2\":val2}]}\n"
+                "Supported chartType values: bar, line, pie, scatter, area.\n"
+                "The yAxis can be a single column name string or an array of column name strings for multiple series.\n"
+                "The data array must contain the actual values from the spreadsheet as objects with the column names as keys.\n"
+                "Place the CHART_SPEC block at the end of your text response, after your analysis.\n"
+                "Only include CHART_SPEC when the user explicitly requests a chart or visualization."
+            )
+
+            # Also include the raw JSON data for the LLM to reference
+            for excel_data in excel_data_list:
+                for sheet in excel_data.get("sheets", []):
+                    # Serialize data, converting dates
+                    serializable_data = []
+                    for row in sheet["data"]:
+                        serializable_row = {}
+                        for k, v in row.items():
+                            if hasattr(v, "isoformat"):
+                                serializable_row[k] = v.isoformat()
+                            elif v is not None:
+                                serializable_row[k] = v
+                        serializable_data.append(serializable_row)
+                    chart_instruction += (
+                        f"\n\nFull data from sheet '{sheet['name']}' in {excel_data['filename']} "
+                        f"(use this for CHART_SPEC data):\n"
+                        f"{json_module.dumps(serializable_data[:200])}"  # Cap at 200 rows
+                    )
+
+            if openai_messages and openai_messages[0]["role"] == "system":
+                openai_messages[0]["content"] += chart_instruction
+            else:
+                openai_messages.insert(
+                    0,
+                    {"role": "system", "content": chart_instruction},
+                )
+
         # Token budget check - truncate if needed (silent truncation)
         model = request.model or "google/gemma-3-27b-it:free"
         max_context = get_model_limit(model)
@@ -390,6 +457,9 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
             roles = [msg.get("role") for msg in openai_messages]
             logger.info(f"Message roles after truncation: {roles}")
 
+        # Collect Excel filenames for chart-data metadata
+        excel_filenames = [d["filename"] for d in excel_data_list] if excel_data_list else None
+
         response = StreamingResponse(
             stream_text(
                 llm_service.client,
@@ -397,6 +467,7 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                 request.model or "google/gemma-3-27b-it:free",
                 0.7 if not request.use_rag else 0.1,
                 sources=rag_sources if rag_sources else None,
+                excel_filenames=excel_filenames,
             ),
             media_type="text/event-stream",
         )

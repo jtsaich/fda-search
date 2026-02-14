@@ -213,6 +213,32 @@ def _create_stream(client, model: str, messages: list, temperature: float):
         raise
 
 
+def _extract_chart_specs(text: str) -> tuple[str, list[dict]]:
+    """
+    Scan accumulated LLM text for CHART_SPEC:{...} blocks.
+    Returns (cleaned_text, list_of_chart_specs).
+    """
+    import re
+    import uuid
+
+    charts = []
+    # Match CHART_SPEC: followed by a JSON object (greedy brace matching)
+    pattern = r'CHART_SPEC:\s*(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})'
+
+    for match in re.finditer(pattern, text):
+        raw_json = match.group(1)
+        try:
+            spec = json.loads(raw_json)
+            spec["id"] = str(uuid.uuid4())
+            charts.append(spec)
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse CHART_SPEC JSON: {raw_json[:200]}")
+
+    # Remove all CHART_SPEC blocks from the text
+    cleaned = re.sub(r'CHART_SPEC:\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', '', text).strip()
+    return cleaned, charts
+
+
 def stream_text(
     client,
     messages: List[Dict[str, Any]],
@@ -220,6 +246,7 @@ def stream_text(
     temperature: float = 0.7,
     protocol: str = "data",
     sources: Optional[List[Dict[str, Any]]] = None,
+    excel_filenames: Optional[List[str]] = None,
 ):
     """
     Stream response from OpenRouter using AI SDK v5 SSE (Server-Sent Events) format
@@ -227,6 +254,7 @@ def stream_text(
     Yields Server-Sent Events formatted chunks:
     - data: {"type":"message-start","messageId":"..."}
     - data: {"type":"text-delta","delta":"text"}
+    - data: {"type":"chart-data",...}  (when LLM produces CHART_SPEC)
     - data: {"type":"finish-message","finishReason":"stop"}
     - data: [DONE]
 
@@ -250,6 +278,7 @@ def stream_text(
         text_id = str(uuid.uuid4())
         text_started = False
         usage_data = None
+        accumulated_text = ""  # Buffer for chart spec detection
 
         try:
             # Send source-document parts BEFORE text starts (if provided)
@@ -299,11 +328,14 @@ def stream_text(
 
                     # Send text deltas with the same id
                     if choice.delta and choice.delta.content:
+                        delta_content = choice.delta.content
+                        accumulated_text += delta_content
+
                         data = json.dumps(
                             {
                                 "type": "text-delta",
                                 "id": text_id,
-                                "delta": choice.delta.content,
+                                "delta": delta_content,
                             }
                         )
                         yield f"data: {data}\n\n"
@@ -317,6 +349,35 @@ def stream_text(
             if text_started:
                 data = json.dumps({"type": "text-end", "id": text_id})
                 yield f"data: {data}\n\n"
+
+            # After streaming completes, check for CHART_SPEC in accumulated text
+            if accumulated_text and "CHART_SPEC:" in accumulated_text:
+                cleaned_text, chart_specs = _extract_chart_specs(accumulated_text)
+
+                # Emit a text-delta that strips the CHART_SPEC from the visible text
+                # by sending a replacement signal
+                if chart_specs:
+                    # Send chart-data parts using AI SDK DataUIPart format:
+                    # { type: "data-*", id?: string, data: unknown }
+                    for spec in chart_specs:
+                        filename = excel_filenames[0] if excel_filenames else None
+                        chart_payload = {
+                            "chartType": spec.get("chartType", "bar"),
+                            "title": spec.get("title", ""),
+                            "data": spec.get("data", []),
+                            "xAxis": spec.get("xAxis", ""),
+                            "yAxis": spec.get("yAxis", ""),
+                        }
+                        if filename:
+                            chart_payload["filename"] = filename
+                        chart_part = {
+                            "type": "data-chart",
+                            "id": spec.get("id", str(uuid.uuid4())),
+                            "data": chart_payload,
+                        }
+                        data = json.dumps(chart_part)
+                        yield f"data: {data}\n\n"
+                        logger.info(f"Emitted data-chart: {spec.get('chartType')} - {spec.get('title')}")
 
             # Send usage data if available (before finish)
             if usage_data and usage_data.get("prompt_tokens") is not None:
