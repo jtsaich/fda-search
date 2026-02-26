@@ -402,14 +402,20 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
         if excel_data_list:
             import json as json_module
             chart_instruction = (
-                "\n\nIMPORTANT: When the user asks you to create a chart, graph, or visualization from the attached Excel data, "
-                "you MUST include a chart specification block in your response using exactly this format:\n"
-                "CHART_SPEC:{\"chartType\":\"bar\",\"title\":\"Chart Title\",\"xAxis\":\"column_name\",\"yAxis\":\"column_name\",\"data\":[{\"col1\":val1,\"col2\":val2}]}\n"
-                "Supported chartType values: bar, line, pie, scatter, area.\n"
-                "The yAxis can be a single column name string or an array of column name strings for multiple series.\n"
-                "The data array must contain the actual values from the spreadsheet as objects with the column names as keys.\n"
-                "Place the CHART_SPEC block at the end of your text response, after your analysis.\n"
-                "Only include CHART_SPEC when the user explicitly requests a chart or visualization."
+                "\n\n## CHART GENERATION RULES (MANDATORY)\n"
+                "When the user asks you to create a chart, graph, or visualization from the attached data, "
+                "you MUST output a machine-readable CHART_SPEC block. This is NOT optional — the frontend parses this block to render an interactive chart.\n\n"
+                "### Required format (output this EXACTLY — no variations allowed):\n"
+                "CHART_SPEC:{\"chartType\":\"bar\",\"title\":\"My Title\",\"xAxis\":\"column_name\",\"yAxis\":\"column_name\",\"data\":[{\"col1\":\"a\",\"col2\":10},{\"col1\":\"b\",\"col2\":20}]}\n\n"
+                "### Rules:\n"
+                "- chartType must be one of: bar, line, pie, scatter, area\n"
+                "- data must be an array of objects with column names as keys and actual values from the spreadsheet\n"
+                "- yAxis can be a string (single series) or an array of strings (multiple series)\n"
+                "- Place the CHART_SPEC block at the END of your response, after your text analysis\n"
+                "- Only include CHART_SPEC when the user explicitly requests a chart or visualization\n\n"
+                "### WRONG (NEVER do this):\n"
+                "```\nLineChart\n  title: My Title\n  x-axis [a, b, c]\n  y-axis \"Revenue\"\n  data [1, 2, 3]\n```\n"
+                "The above plaintext/ASCII format WILL NOT render. You MUST use the CHART_SPEC JSON format.\n"
             )
 
             # Also include the raw JSON data for the LLM to reference

@@ -23,7 +23,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-interface ChartData {
+export interface ChartData {
   chartType: string;
   title: string;
   data: Record<string, unknown>[];

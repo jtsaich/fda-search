@@ -16,7 +16,7 @@ import remarkGfm from "remark-gfm";
 import { DefaultChatTransport, UIMessage } from "ai";
 import { saveChat } from "@/lib/chat-store";
 import { SystemPromptManager } from "./SystemPromptManager";
-import { ChartRenderer } from "./ChartRenderer";
+import { ChartRenderer, type ChartData } from "./ChartRenderer";
 
 interface ChatInterfaceProps {
   id?: string;
@@ -43,6 +43,34 @@ interface UsageData {
 
 const DEFAULT_SYSTEM_PROMPT =
   "You are an expert AI researcher in pharmaceutical development, specializing in process optimization and automation.";
+
+const CHART_SPEC_REGEX = /CHART_SPEC:\s*(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})/g;
+
+/** Extract ChartData[] from raw text parts (fallback when data-chart parts are missing after reload) */
+function parseChartSpecsFromText(parts: { type: string; text?: string }[]): ChartData[] {
+  const charts: ChartData[] = [];
+  for (const part of parts) {
+    if (part.type !== "text" || !part.text) continue;
+    const regex = new RegExp(CHART_SPEC_REGEX.source, "g");
+    let match;
+    while ((match = regex.exec(part.text)) !== null) {
+      try {
+        const spec = JSON.parse(match[1]);
+        charts.push({
+          chartType: spec.chartType ?? "bar",
+          title: spec.title ?? "",
+          data: spec.data ?? [],
+          xAxis: spec.xAxis ?? "",
+          yAxis: spec.yAxis ?? "",
+          filename: spec.filename,
+        });
+      } catch {
+        // skip invalid JSON
+      }
+    }
+  }
+  return charts;
+}
 
 export function ChatInterface({
   id,
@@ -199,26 +227,31 @@ export function ChatInterface({
                           );
                         })}
 
-                      {/* Render chart-data parts (AI SDK DataUIPart: chart info is in part.data) */}
-                      {message.parts
-                        .filter((part) => part.type === "data-chart")
-                        .map((part, idx) => {
-                          const dataPart = part as unknown as {
-                            type: string;
-                            id?: string;
-                            data: {
-                              chartType: string;
-                              title: string;
-                              data: Record<string, unknown>[];
-                              xAxis: string;
-                              yAxis: string | string[];
-                              filename?: string;
+                      {/* Render chart-data parts (AI SDK DataUIPart or fallback from CHART_SPEC in text) */}
+                      {(() => {
+                        const dataChartParts = message.parts.filter(
+                          (part) => part.type === "data-chart"
+                        );
+                        if (dataChartParts.length > 0) {
+                          return dataChartParts.map((part, idx) => {
+                            const dataPart = part as unknown as {
+                              type: string;
+                              id?: string;
+                              data: ChartData;
                             };
-                          };
-                          return (
-                            <ChartRenderer key={dataPart.id || idx} chart={dataPart.data} />
-                          );
-                        })}
+                            return (
+                              <ChartRenderer key={dataPart.id || idx} chart={dataPart.data} />
+                            );
+                          });
+                        }
+                        // Fallback: parse CHART_SPEC from text (e.g. after page refresh)
+                        const parsed = parseChartSpecsFromText(
+                          message.parts as { type: string; text?: string }[]
+                        );
+                        return parsed.map((chart, idx) => (
+                          <ChartRenderer key={`parsed-${idx}`} chart={chart} />
+                        ));
+                      })()}
 
                       {/* Render source-document parts */}
                       {message.parts.filter(
