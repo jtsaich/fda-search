@@ -66,7 +66,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://frontend-git-main-jtsaichs-projects.vercel.app",
+        "https://frontend-psi-plum-51.vercel.app",
     ],
+    allow_origin_regex=r"https://frontend-.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
