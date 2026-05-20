@@ -32,9 +32,11 @@ def get_file_mime_type(filename: str) -> str:
 
 class LLMService:
     def __init__(self):
+        from services.chat_protocol import DEFAULT_MODEL
+
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.base_url = "https://openrouter.ai/api/v1"
-        self.model = "google/gemma-3-27b-it:free"
+        self.model = DEFAULT_MODEL
 
         if self.api_key:
             self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)

@@ -18,6 +18,7 @@ from services.llm_service import LLMService
 from services.excel_service import ExcelService
 from services.chat_protocol import (
     ChatRequest,
+    DEFAULT_MODEL,
     stream_text,
     count_message_tokens,
     truncate_messages_to_fit,
@@ -79,7 +80,7 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     query: str
     max_results: Optional[int] = 5
-    model: Optional[str] = "google/gemma-3-27b-it:free"
+    model: Optional[str] = None  # falls back to DEFAULT_MODEL when unset
 
 
 class QueryResponse(BaseModel):
@@ -448,7 +449,7 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                 )
 
         # Token budget check - truncate if needed (silent truncation)
-        model = request.model or "google/gemma-3-27b-it:free"
+        model = request.model or DEFAULT_MODEL
         max_context = get_model_limit(model)
         current_tokens = count_message_tokens(openai_messages)
         logger.info(f"Token count before truncation: {current_tokens}, limit: {max_context}")
@@ -472,7 +473,7 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
             stream_text(
                 llm_service.client,
                 openai_messages,
-                request.model or "google/gemma-3-27b-it:free",
+                request.model or DEFAULT_MODEL,
                 0.7 if not request.use_rag else 0.1,
                 sources=rag_sources if rag_sources else None,
                 excel_filenames=excel_filenames,

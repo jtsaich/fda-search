@@ -10,7 +10,8 @@ import { useParams } from "next/navigation";
 export default function ChatPageWithId() {
   const params = useParams();
   const id = params.id as string;
-  const selectedModel = "google/gemma-3-27b-it:free";
+  // Empty string defers to backend's DEFAULT_MODEL (OPENROUTER_DEFAULT_MODEL env var on Railway)
+  const selectedModel = "";
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [loading, setLoading] = useState(true);
 

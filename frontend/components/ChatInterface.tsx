@@ -350,7 +350,7 @@ export function ChatInterface({
               { text: input, files },
               {
                 body: {
-                  model: selectedModel,
+                  ...(selectedModel ? { model: selectedModel } : {}),
                   use_rag: useRAG,
                   system_prompt: systemPrompt,
                 },

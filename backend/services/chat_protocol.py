@@ -6,16 +6,25 @@ https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol#data-stream-protocol
 
 import json
 import logging
+import os
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import tiktoken
 
 logger = logging.getLogger(__name__)
 
+# Default model — overridable via OPENROUTER_DEFAULT_MODEL env var so the
+# active model can be swapped from the Railway dashboard without redeploying.
+DEFAULT_MODEL = os.getenv(
+    "OPENROUTER_DEFAULT_MODEL",
+    "google/gemini-2.5-flash-lite-preview-09-2025",
+)
+
 # Model context limits
 MODEL_CONTEXT_LIMITS = {
     "google/gemma-3-27b-it:free": 131072,
     "google/gemma-3-27b-it": 131072,
+    "google/gemini-2.5-flash-lite-preview-09-2025": 1048576,
     "google/gemini-3-flash-preview": 1048576,
     "anthropic/claude-3.5-sonnet": 200000,
     "openai/gpt-4o": 128000,
@@ -166,7 +175,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: List[ChatMessage]
-    model: Optional[str] = "google/gemma-3-27b-it:free"
+    model: Optional[str] = None  # falls back to DEFAULT_MODEL when unset
     use_rag: Optional[bool] = True
     system_prompt: Optional[str] = None
 
