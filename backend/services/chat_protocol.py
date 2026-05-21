@@ -200,6 +200,7 @@ def _create_stream(client, model: str, messages: list, temperature: float):
         should_fallback = (
             "unavailable" in error_str
             or "not found" in error_str
+            or "no endpoints found" in error_str
             or "does not exist" in error_str
             or "rate-limited" in error_str
             or "rate limit" in error_str
@@ -208,7 +209,11 @@ def _create_stream(client, model: str, messages: list, temperature: float):
             or "not enabled" in error_str
         )
         if should_fallback:
+            # Per-model fallback if defined, otherwise fall back to DEFAULT_MODEL
+            # (unless DEFAULT_MODEL is the model that just failed)
             fallback = MODEL_FALLBACKS.get(model)
+            if not fallback and model != DEFAULT_MODEL:
+                fallback = DEFAULT_MODEL
             if fallback:
                 logger.warning(f"Model {model} error: {e}, falling back to {fallback}")
                 return client.chat.completions.create(
