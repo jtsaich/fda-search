@@ -69,7 +69,7 @@ app.add_middleware(
         "https://frontend-git-main-jtsaichs-projects.vercel.app",
         "https://frontend-psi-plum-51.vercel.app",
     ],
-    allow_origin_regex=r"https://frontend-.*\.vercel\.app",
+    allow_origin_regex=r"https://(frontend|fda-research|fda-search)(-.*)?\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
