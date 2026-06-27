@@ -7,6 +7,7 @@ import {
   Loader2,
   BookOpen,
   MessageCircle,
+  Activity,
   Paperclip,
   X,
 } from "lucide-react";
@@ -41,6 +42,17 @@ interface UsageData {
   total_tokens: number;
 }
 
+interface AgentStep {
+  agent?: string;
+  status?: string;
+  generated_by?: string;
+  intent?: string;
+  clarified_question?: string;
+  tools?: string[];
+  tool_reason?: string;
+  issues?: string[];
+}
+
 const DEFAULT_SYSTEM_PROMPT =
   "You are an expert AI researcher in pharmaceutical development, specializing in process optimization and automation.";
 
@@ -70,6 +82,34 @@ function parseChartSpecsFromText(parts: { type: string; text?: string }[]): Char
     }
   }
   return charts;
+}
+
+function getAgentLabel(agent?: string) {
+  if (agent === "contract_generator") return "Generator";
+  if (agent === "tool_runner") return "Tool runner";
+  if (agent === "evidence_evaluator") return "Evaluator";
+  return agent || "Agent";
+}
+
+function getAgentStepText(step: AgentStep) {
+  if (step.agent === "contract_generator") {
+    const tools = step.tools?.length ? ` Tools: ${step.tools.join(", ")}.` : "";
+    const clarified = step.clarified_question
+      ? ` Clarified: ${step.clarified_question}.`
+      : "";
+    return `${step.generated_by === "llm" ? "LLM" : "Rule"} generator selected intent "${step.intent || "unknown"}."${clarified}${tools}`;
+  }
+  if (step.agent === "tool_runner") {
+    return step.tools?.length
+      ? `Ran ${step.tools.join(", ")}.`
+      : "No evidence tools were run.";
+  }
+  if (step.agent === "evidence_evaluator") {
+    return step.issues?.length
+      ? `Evidence rejected: ${step.issues.join("; ")}`
+      : "Evidence approved for answer generation.";
+  }
+  return step.status || "Step completed.";
 }
 
 export function ChatInterface({
@@ -195,6 +235,38 @@ export function ChatInterface({
                 >
                   {message.role === "assistant" ? (
                     <>
+                      {/* Render streamed agent process steps */}
+                      {(() => {
+                        const agentStepParts = message.parts.filter(
+                          (part) => part.type === "data-agent-step"
+                        ) as unknown as { type: string; data: AgentStep }[];
+                        if (agentStepParts.length === 0) return null;
+
+                        return (
+                          <div className="mb-3 rounded-md border border-slate-200 bg-white/70 p-2 text-xs text-slate-700">
+                            <div className="mb-1.5 flex items-center gap-1.5 font-semibold text-slate-800">
+                              <Activity className="h-3.5 w-3.5" />
+                              Agent process
+                            </div>
+                            <div className="space-y-1.5">
+                              {agentStepParts.map((part, idx) => {
+                                const step = part.data;
+                                return (
+                                  <div key={idx} className="flex gap-2">
+                                    <span className="min-w-20 font-medium text-slate-600">
+                                      {getAgentLabel(step.agent)}
+                                    </span>
+                                    <span className="text-slate-700">
+                                      {getAgentStepText(step)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Render text content (strip CHART_SPEC blocks) */}
                       {message.parts
                         .filter((part) => part.type === "text")
