@@ -77,7 +77,7 @@ export function ChatInterface({
   initialMessages,
   selectedModel,
 }: ChatInterfaceProps) {
-  const [useRAG, setUseRAG] = useState(true);
+  const [useEvidenceTools, setUseEvidenceTools] = useState(true);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
 
   const [input, setInput] = useState("");
@@ -121,37 +121,37 @@ export function ChatInterface({
       {/* Toggle Control */}
       <div className="border-b p-3 bg-gray-50 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium text-gray-700">
               Query Mode:
             </span>
             <button
-              onClick={() => setUseRAG(!useRAG)}
+              onClick={() => setUseEvidenceTools(true)}
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm transition-colors",
-                useRAG
+                useEvidenceTools
                   ? "bg-blue-500 text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               )}
             >
               <BookOpen className="h-4 w-4" />
-              RAG Mode
+              Use Evidence Tools
             </button>
             <button
-              onClick={() => setUseRAG(!useRAG)}
+              onClick={() => setUseEvidenceTools(false)}
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm transition-colors",
-                !useRAG
+                !useEvidenceTools
                   ? "bg-purple-500 text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               )}
             >
               <MessageCircle className="h-4 w-4" />
-              Direct LLM
+              Model Only
             </button>
           </div>
           <div className="text-xs text-gray-500">
-            {useRAG ? "Using embeddings + context" : "Direct model response"}
+            {useEvidenceTools ? "Agent can use SQL and knowledge-base tools" : "No tools, model-only response"}
           </div>
         </div>
 
@@ -167,7 +167,7 @@ export function ChatInterface({
           <div className="text-center text-gray-500 mt-8">
             <p className="text-sm mt-2">Start typing to ask questions</p>
             <p className="text-xs mt-4 text-gray-400">
-              Toggle between RAG and Direct mode to compare results
+              Toggle between evidence tools and model-only responses
             </p>
           </div>
         ) : (
@@ -351,7 +351,7 @@ export function ChatInterface({
               {
                 body: {
                   ...(selectedModel ? { model: selectedModel } : {}),
-                  use_rag: useRAG,
+                  use_evidence_tools: useEvidenceTools,
                   system_prompt: systemPrompt,
                 },
               }

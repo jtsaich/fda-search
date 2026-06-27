@@ -8,7 +8,7 @@ import json
 import logging
 import os
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 import tiktoken
 
 logger = logging.getLogger(__name__)
@@ -174,9 +174,14 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     messages: List[ChatMessage]
     model: Optional[str] = None  # falls back to DEFAULT_MODEL when unset
-    use_rag: Optional[bool] = True
+    use_evidence_tools: Optional[bool] = Field(
+        default=True,
+        validation_alias=AliasChoices("use_evidence_tools", "use_rag"),
+    )
     system_prompt: Optional[str] = None
 
 

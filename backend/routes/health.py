@@ -84,7 +84,7 @@ async def test_starlims_agent(
     try:
         run = await starlims_agent_service.run(question)
         if not run:
-            return {"status": "error", "message": "Question was not routed to STARLIMS agent"}
+            return {"status": "error", "message": "Question was not routed to the search agent"}
 
         return {
             "status": "approved" if run.evaluation.approved else "rejected",

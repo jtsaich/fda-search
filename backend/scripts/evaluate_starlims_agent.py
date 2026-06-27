@@ -62,13 +62,37 @@ class FakeSqlService:
         return {"tool": tool_name, "rows": rows[tool_name]}
 
 
+async def fake_rag_search(query):
+    return {
+        "rows": [
+            {
+                "id": "chunk-1",
+                "filename": "FDA guidance.pdf",
+                "chunk_index": 0,
+                "score": 0.9,
+                "text": f"Retrieved context for: {query}",
+            }
+        ],
+        "sources": [
+            {
+                "type": "document",
+                "id": "chunk-1",
+                "filename": "FDA guidance.pdf",
+                "chunk_index": 0,
+                "score": 0.9,
+                "text": "Retrieved context",
+            }
+        ],
+    }
+
+
 def assert_contract_checks():
     from services.starlims_agent_service import StarlimsAgentService
     from services.starlims_sql_service import StarlimsSqlService
 
     async def run_checks():
         sql = FakeSqlService()
-        service = StarlimsAgentService(sql_service=sql)
+        service = StarlimsAgentService(sql_service=sql, rag_search=fake_rag_search)
 
         run = await service.run("May 2026 STARLIMS Prelogged distribution")
         assert run is not None
@@ -84,7 +108,9 @@ def assert_contract_checks():
         assert "missing_done_testing_dt" in run.prompt_context
 
         run = await service.run("What does FDA guidance say about clinical trials?")
-        assert run is None
+        assert run.contract.intent == "knowledge_base_question"
+        assert run.contract.tools == ["knowledge_base_search"]
+        assert "Retrieved context" in run.prompt_context
 
         try:
             StarlimsSqlService().run_tool("drop_everything")

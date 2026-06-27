@@ -48,6 +48,63 @@ class FakeSqlService:
         return {"tool": tool_name, "rows": rows[tool_name]}
 
 
+async def fake_rag_search(query):
+    return {
+        "rows": [
+            {
+                "id": "chunk-1",
+                "filename": "FDA guidance.pdf",
+                "chunk_index": 0,
+                "score": 0.9,
+                "text": f"Retrieved context for: {query}",
+            }
+        ],
+        "sources": [
+            {
+                "type": "document",
+                "id": "chunk-1",
+                "filename": "FDA guidance.pdf",
+                "chunk_index": 0,
+                "score": 0.9,
+                "text": "Retrieved context",
+            }
+        ],
+    }
+
+
+class FakeLLMClient:
+    def __init__(self, content):
+        self.chat = FakeChat(content)
+
+
+class FakeChat:
+    def __init__(self, content):
+        self.completions = FakeCompletions(content)
+
+
+class FakeCompletions:
+    def __init__(self, content):
+        self.content = content
+
+    def create(self, **kwargs):
+        return FakeResponse(self.content)
+
+
+class FakeResponse:
+    def __init__(self, content):
+        self.choices = [FakeChoice(content)]
+
+
+class FakeChoice:
+    def __init__(self, content):
+        self.message = FakeMessage(content)
+
+
+class FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
 def test_starlims_agent_generates_status_contract():
     sql = FakeSqlService()
     service = StarlimsAgentService(sql_service=sql)
@@ -76,12 +133,45 @@ def test_starlims_agent_adds_boundaries_for_tat_question():
     assert "missing_done_testing_dt" in run.prompt_context
 
 
-def test_starlims_agent_ignores_non_starlims_question():
-    service = StarlimsAgentService(sql_service=FakeSqlService())
+def test_agent_routes_non_starlims_question_to_rag_tool():
+    service = StarlimsAgentService(
+        sql_service=FakeSqlService(),
+        rag_search=fake_rag_search,
+    )
 
     run = asyncio.run(service.run("What does FDA guidance say about clinical trials?"))
 
-    assert run is None
+    assert run.contract.intent == "knowledge_base_question"
+    assert run.contract.tools == ["knowledge_base_search"]
+    assert "Retrieved context" in run.prompt_context
+    assert run.sources[0]["filename"] == "FDA guidance.pdf"
+
+
+def test_agent_uses_llm_contract_when_available():
+    client = FakeLLMClient(
+        """
+        {
+          "clarified_question": "Summarize clinical trial guidance",
+          "intent": "guidance_summary",
+          "tools": ["knowledge_base_search"],
+          "can_answer_directly": true,
+          "unsupported_reasons": [],
+          "tool_reason": "Needs FDA document context"
+        }
+        """
+    )
+    service = StarlimsAgentService(
+        sql_service=FakeSqlService(),
+        rag_search=fake_rag_search,
+        llm_client=client,
+    )
+
+    run = asyncio.run(service.run("clinical trial guidance?"))
+
+    assert run.contract.generated_by == "llm"
+    assert run.contract.intent == "guidance_summary"
+    assert run.contract.clarified_question == "Summarize clinical trial guidance"
+    assert run.contract.tools == ["knowledge_base_search"]
 
 
 def test_starlims_sql_service_rejects_unknown_tool_before_connecting():
