@@ -4,6 +4,8 @@ import logging
 from services.vector_service import VectorService
 from services.embedding_service import EmbeddingService
 from services.llm_service import LLMService
+from services.starlims_agent_service import StarlimsAgentService
+from services.starlims_sql_service import StarlimsSqlService
 
 router = APIRouter(tags=["health"])
 logger = logging.getLogger(__name__)
@@ -12,6 +14,8 @@ logger = logging.getLogger(__name__)
 vector_service = VectorService()
 embedding_service = EmbeddingService()
 llm_service = LLMService()
+starlims_sql_service = StarlimsSqlService()
+starlims_agent_service = StarlimsAgentService()
 
 
 @router.get("/health/pinecone")
@@ -55,6 +59,53 @@ async def test_embeddings():
 async def test_llm():
     """Test OpenRouter LLM connection"""
     return await llm_service.test_connection()
+
+
+@router.get("/health/starlims")
+async def test_starlims_sql():
+    """Test STARLIMS SQL Server connection using the fixed May task summary."""
+    if not starlims_sql_service.is_configured:
+        return {"status": "error", "message": "STARLIMS SQL is not configured"}
+
+    try:
+        result = starlims_sql_service.run_tool("may_task_summary")
+        if result.get("error"):
+            return {"status": "error", "message": result["error"]}
+        return {"status": "connected", "result": result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@router.get("/health/starlims-agent")
+async def test_starlims_agent(
+    question: str = "請列出5月經手任務的現行狀態分布。"
+):
+    """Verify the STARLIMS generator/evaluator loop inside the running app."""
+    try:
+        run = await starlims_agent_service.run(question)
+        if not run:
+            return {"status": "error", "message": "Question was not routed to STARLIMS agent"}
+
+        return {
+            "status": "approved" if run.evaluation.approved else "rejected",
+            "contract": {
+                "intent": run.contract.intent,
+                "tools": run.contract.tools,
+                "can_answer_directly": run.contract.can_answer_directly,
+                "unsupported_reasons": run.contract.unsupported_reasons,
+            },
+            "evaluation": {
+                "approved": run.evaluation.approved,
+                "issues": run.evaluation.issues,
+            },
+            "tool_row_counts": {
+                result.get("tool"): len(result.get("rows", []))
+                for result in run.tool_results
+            },
+            "steps": run.steps,
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 @router.post("/admin/recreate-index")

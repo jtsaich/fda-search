@@ -12,7 +12,12 @@ import io
 class DocumentService:
     def __init__(self, upload_dir: str = "./uploads"):
         self.upload_dir = upload_dir
-        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        self.tokenizer = None
+
+    def _get_tokenizer(self):
+        if not self.tokenizer:
+            self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        return self.tokenizer
 
     async def process_document(self, file_path: str, filename: str) -> Dict[str, Any]:
         """Process uploaded document and extract text"""
@@ -127,12 +132,13 @@ class DocumentService:
         self, text: str, chunk_size: int = 512, overlap: int = 50
     ) -> List[Dict[str, Any]]:
         """Split text into chunks with overlap"""
-        tokens = self.tokenizer.encode(text)
+        tokenizer = self._get_tokenizer()
+        tokens = tokenizer.encode(text)
         chunks = []
 
         for i in range(0, len(tokens), chunk_size - overlap):
             chunk_tokens = tokens[i : i + chunk_size]
-            chunk_text = self.tokenizer.decode(chunk_tokens)
+            chunk_text = tokenizer.decode(chunk_tokens)
             chunks.append(
                 {"text": chunk_text, "start_index": i, "token_count": len(chunk_tokens)}
             )

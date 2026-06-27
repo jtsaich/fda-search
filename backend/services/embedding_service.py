@@ -11,6 +11,12 @@ class EmbeddingService:
         # all-mpnet-base-v2: 768 dim, ~420MB - best quality for general use
         # Provides significantly better retrieval accuracy than smaller models
         self.model_id = "sentence-transformers/all-mpnet-base-v2"
+        self.model = None
+
+    def _ensure_model(self):
+        if self.model:
+            return
+
         try:
             # Load the model locally for better performance and reliability
             self.model = SentenceTransformer(self.model_id)
@@ -18,11 +24,11 @@ class EmbeddingService:
         except Exception as e:
             print(f"Error loading sentence transformer model: {e}")
             self.model = None
+            raise Exception("Sentence transformer model not loaded")
 
     async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for a list of texts"""
-        if not self.model:
-            raise Exception("Sentence transformer model not loaded")
+        self._ensure_model()
 
         try:
             # Generate embeddings for all texts at once (more efficient)
@@ -33,8 +39,7 @@ class EmbeddingService:
 
     async def generate_embedding(self, text: str) -> List[float]:
         """Generate embedding for a single text"""
-        if not self.model:
-            raise Exception("Sentence transformer model not loaded")
+        self._ensure_model()
 
         try:
             # Generate embedding for single text

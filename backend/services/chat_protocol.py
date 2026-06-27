@@ -261,6 +261,7 @@ def stream_text(
     protocol: str = "data",
     sources: Optional[List[Dict[str, Any]]] = None,
     excel_filenames: Optional[List[str]] = None,
+    agent_steps: Optional[List[Dict[str, Any]]] = None,
 ):
     """
     Stream response from OpenRouter using AI SDK v5 SSE (Server-Sent Events) format
@@ -295,6 +296,11 @@ def stream_text(
         accumulated_text = ""  # Buffer for chart spec detection
 
         try:
+            if agent_steps:
+                for step in agent_steps:
+                    data = json.dumps({"type": "data-agent-step", "data": step})
+                    yield f"data: {data}\n\n"
+
             # Send source-document parts BEFORE text starts (if provided)
             # Following AI SDK SourceDocumentUIPart structure
             # providerMetadata must be Record<string, any> where values are JSON-serializable

@@ -16,6 +16,7 @@ from services.vector_service import VectorService
 from services.embedding_service import EmbeddingService
 from services.llm_service import LLMService
 from services.excel_service import ExcelService
+from services.starlims_agent_service import StarlimsAgentService
 from services.chat_protocol import (
     ChatRequest,
     DEFAULT_MODEL,
@@ -45,6 +46,7 @@ vector_service = VectorService()
 embedding_service = EmbeddingService()
 llm_service = LLMService()
 excel_service = ExcelService()
+starlims_agent_service = StarlimsAgentService()
 
 app = FastAPI(title="FDA RAG API", version="1.0.0")
 
@@ -320,6 +322,7 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
 
         # If RAG is enabled, get context for the last user message
         rag_sources = []
+        agent_steps = None
         if request.use_rag and request.messages:
             last_user_message = next(
                 (msg for msg in reversed(request.messages) if msg.role == "user"), None
@@ -328,61 +331,17 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
             if last_user_message:
                 query_text = last_user_message.get_text_content()
                 if query_text:
+                    agent_run = None
                     try:
-                        logger.info(f"RAG Query: {query_text}")
-                        # Generate embedding and search
-                        query_embedding = await embedding_service.generate_embedding(
-                            query_text
-                        )
-                        similar_chunks = await vector_service.search_similar(
-                            query_embedding, top_k=10
-                        )
-
-                        # Sort by score descending (highest similarity first)
-                        similar_chunks = sorted(
-                            similar_chunks,
-                            key=lambda x: x.get("score", 0),
-                            reverse=True,
-                        )
-
-                        logger.info(
-                            f"Found {len(similar_chunks)} similar chunks (sorted by score)"
-                        )
-                        for i, chunk in enumerate(similar_chunks):
-                            metadata = chunk.get("metadata", {})
+                        agent_run = await starlims_agent_service.run(query_text)
+                        if agent_run:
                             logger.info(
-                                f"Chunk {i+1}: score={chunk.get('score', 0):.4f}, filename={metadata.get('filename', 'unknown')}, text preview={metadata.get('text', '')[:100]}..."
+                                "STARLIMS agent handled query with intent %s",
+                                agent_run.contract.intent,
                             )
-
-                        # Add context to system message if we found relevant chunks
-                        if similar_chunks:
-                            # Prepare sources for the frontend
-                            for i, chunk in enumerate(similar_chunks[:3]):
-                                metadata = chunk.get("metadata", {})
-                                rag_sources.append(
-                                    {
-                                        "type": "document",
-                                        "id": chunk.get("id"),
-                                        "filename": metadata.get("filename", "Unknown"),
-                                        "chunk_index": metadata.get("chunk_index", 0),
-                                        "score": round(chunk.get("score", 0), 4),
-                                        "text": metadata.get("text", "")[
-                                            :500
-                                        ],  # Truncate for source display
-                                    }
-                                )
-
-                            context = "\n\n".join(
-                                [
-                                    chunk.get("metadata", {}).get("text", "")
-                                    for chunk in similar_chunks[:3]
-                                ]
-                            )
-
-                            # Update or add system message with context
-                            context_addition = (
-                                f"\n\nRelevant context from knowledge base:\n{context}"
-                            )
+                            agent_steps = agent_run.steps
+                            rag_sources.append(agent_run.source)
+                            context_addition = f"\n\n{agent_run.prompt_context}"
                             if (
                                 openai_messages
                                 and openai_messages[0]["role"] == "system"
@@ -393,12 +352,84 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                                     0,
                                     {
                                         "role": "system",
-                                        "content": f"Context from knowledge base:{context_addition}",
+                                        "content": agent_run.prompt_context,
                                     },
                                 )
-
                     except Exception as e:
-                        logger.warning(f"RAG retrieval failed: {str(e)}")
+                        logger.warning(f"STARLIMS agent failed: {str(e)}")
+
+                    if not agent_run:
+                        try:
+                            logger.info(f"RAG Query: {query_text}")
+                            # Generate embedding and search
+                            query_embedding = await embedding_service.generate_embedding(
+                                query_text
+                            )
+                            similar_chunks = await vector_service.search_similar(
+                                query_embedding, top_k=10
+                            )
+
+                            # Sort by score descending (highest similarity first)
+                            similar_chunks = sorted(
+                                similar_chunks,
+                                key=lambda x: x.get("score", 0),
+                                reverse=True,
+                            )
+
+                            logger.info(
+                                f"Found {len(similar_chunks)} similar chunks (sorted by score)"
+                            )
+                            for i, chunk in enumerate(similar_chunks):
+                                metadata = chunk.get("metadata", {})
+                                logger.info(
+                                    f"Chunk {i+1}: score={chunk.get('score', 0):.4f}, filename={metadata.get('filename', 'unknown')}, text preview={metadata.get('text', '')[:100]}..."
+                                )
+
+                            # Add context to system message if we found relevant chunks
+                            if similar_chunks:
+                                # Prepare sources for the frontend
+                                for i, chunk in enumerate(similar_chunks[:3]):
+                                    metadata = chunk.get("metadata", {})
+                                    rag_sources.append(
+                                        {
+                                            "type": "document",
+                                            "id": chunk.get("id"),
+                                            "filename": metadata.get("filename", "Unknown"),
+                                            "chunk_index": metadata.get("chunk_index", 0),
+                                            "score": round(chunk.get("score", 0), 4),
+                                            "text": metadata.get("text", "")[
+                                                :500
+                                            ],  # Truncate for source display
+                                        }
+                                    )
+
+                                context = "\n\n".join(
+                                    [
+                                        chunk.get("metadata", {}).get("text", "")
+                                        for chunk in similar_chunks[:3]
+                                    ]
+                                )
+
+                                # Update or add system message with context
+                                context_addition = (
+                                    f"\n\nRelevant context from knowledge base:\n{context}"
+                                )
+                                if (
+                                    openai_messages
+                                    and openai_messages[0]["role"] == "system"
+                                ):
+                                    openai_messages[0]["content"] += context_addition
+                                else:
+                                    openai_messages.insert(
+                                        0,
+                                        {
+                                            "role": "system",
+                                            "content": f"Context from knowledge base:{context_addition}",
+                                        },
+                                    )
+
+                        except Exception as e:
+                            logger.warning(f"RAG retrieval failed: {str(e)}")
 
         # Inject chart generation instructions when Excel data is attached
         excel_data_list = getattr(request, '_excel_data', None)
@@ -477,6 +508,7 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                 0.7 if not request.use_rag else 0.1,
                 sources=rag_sources if rag_sources else None,
                 excel_filenames=excel_filenames,
+                agent_steps=agent_steps,
             ),
             media_type="text/event-stream",
         )
