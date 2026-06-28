@@ -88,6 +88,9 @@ class TestExtractChartSpecs:
 
     def test_chart_request_detection(self):
         assert is_chart_request("Create a chart of STARLIMS status distribution")
+        assert is_chart_request(
+            "请生成2026 年 5 月份数据以每周为单位的数据可视化图片"
+        )
         assert not is_chart_request("Summarize STARLIMS status distribution")
 
     def test_chart_instruction_accepts_agent_tool_rows(self):
