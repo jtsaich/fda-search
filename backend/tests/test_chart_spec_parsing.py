@@ -3,7 +3,11 @@
 import json
 import pytest
 
-from services.chat_protocol import _extract_chart_specs
+from services.chat_protocol import (
+    _extract_chart_specs,
+    build_chart_instruction,
+    is_chart_request,
+)
 
 
 class TestExtractChartSpecs:
@@ -81,3 +85,26 @@ class TestExtractChartSpecs:
         assert len(charts[0]["data"]) == 2
         total = sum(d["Amount"] for d in charts[0]["data"])
         assert total == 100
+
+    def test_chart_request_detection(self):
+        assert is_chart_request("Create a chart of STARLIMS status distribution")
+        assert not is_chart_request("Summarize STARLIMS status distribution")
+
+    def test_chart_instruction_accepts_agent_tool_rows(self):
+        instruction = build_chart_instruction(
+            [
+                {
+                    "label": "agent tool 'may_status_distribution'",
+                    "rows": [
+                        {"current_status": "Prelogged", "tasks": 84, "pct": 52.8},
+                        {"current_status": "Logged", "tasks": 50, "pct": 31.4},
+                    ],
+                }
+            ]
+        )
+
+        assert "CHART_SPEC:" in instruction
+        assert "available data" in instruction
+        assert "may_status_distribution" in instruction
+        assert '"current_status": "Prelogged"' in instruction
+        assert '"tasks": 84' in instruction

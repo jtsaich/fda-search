@@ -188,6 +188,72 @@ class ChatRequest(BaseModel):
 available_tools = {}
 
 
+CHART_KEYWORDS = (
+    "chart",
+    "graph",
+    "plot",
+    "visualization",
+    "visualize",
+    "圖",
+    "圖表",
+    "視覺化",
+    "長條",
+    "折線",
+    "圓餅",
+)
+
+
+def is_chart_request(text: str) -> bool:
+    normalized = text.lower()
+    return any(keyword in normalized for keyword in CHART_KEYWORDS)
+
+
+def json_safe_rows(rows: list[dict[str, Any]], limit: int = 200) -> list[dict[str, Any]]:
+    safe_rows = []
+    for row in rows[:limit]:
+        if not isinstance(row, dict):
+            continue
+        safe_row = {}
+        for key, value in row.items():
+            if hasattr(value, "isoformat"):
+                safe_row[key] = value.isoformat()
+            elif value is not None:
+                safe_row[key] = value
+        if safe_row:
+            safe_rows.append(safe_row)
+    return safe_rows
+
+
+def build_chart_instruction(data_sources: list[dict[str, Any]]) -> str:
+    chart_instruction = (
+        "\n\n## CHART GENERATION RULES (MANDATORY)\n"
+        "When the user asks you to create a chart, graph, or visualization from the available data, "
+        "you MUST output a machine-readable CHART_SPEC block. This is NOT optional — the frontend parses this block to render an interactive chart.\n\n"
+        "### Required format (output this EXACTLY — no variations allowed):\n"
+        "CHART_SPEC:{\"chartType\":\"bar\",\"title\":\"My Title\",\"xAxis\":\"column_name\",\"yAxis\":\"column_name\",\"data\":[{\"col1\":\"a\",\"col2\":10},{\"col1\":\"b\",\"col2\":20}]}\n\n"
+        "### Rules:\n"
+        "- chartType must be one of: bar, line, pie, scatter, area\n"
+        "- data must be an array of objects with column names as keys and actual values from the data source\n"
+        "- yAxis can be a string (single series) or an array of strings (multiple series)\n"
+        "- Place the CHART_SPEC block at the END of your response, after your text analysis\n"
+        "- Only include CHART_SPEC when the user explicitly requests a chart or visualization\n\n"
+        "### WRONG (NEVER do this):\n"
+        "```\nLineChart\n  title: My Title\n  x-axis [a, b, c]\n  y-axis \"Revenue\"\n  data [1, 2, 3]\n```\n"
+        "The above plaintext/ASCII format WILL NOT render. You MUST use the CHART_SPEC JSON format.\n"
+    )
+
+    for source in data_sources:
+        rows = json_safe_rows(source.get("rows", []))
+        if rows:
+            chart_instruction += (
+                f"\n\nFull data from {source.get('label', 'data')} "
+                "(use this for CHART_SPEC data):\n"
+                f"{json.dumps(rows, ensure_ascii=False)}"
+            )
+
+    return chart_instruction
+
+
 def _create_stream(client, model: str, messages: list, temperature: float):
     """Create a streaming chat completion, with fallback on model unavailability."""
     try:

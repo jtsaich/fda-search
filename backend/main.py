@@ -16,14 +16,16 @@ from services.vector_service import VectorService
 from services.embedding_service import EmbeddingService
 from services.llm_service import LLMService
 from services.excel_service import ExcelService
-from services.starlims_agent_service import StarlimsAgentService
+from services.starlims_agent_service import RAG_TOOL, StarlimsAgentService
 from services.chat_protocol import (
     ChatRequest,
     DEFAULT_MODEL,
+    build_chart_instruction,
     stream_text,
     count_message_tokens,
     truncate_messages_to_fit,
     get_model_limit,
+    is_chart_request,
 )
 from routes.documents import router as documents_router
 from routes.health import router as health_router
@@ -367,6 +369,8 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
         # If evidence tools are enabled, let the agent choose tools for the last user message.
         evidence_sources = []
         agent_steps = None
+        agent_chart_sources = []
+        latest_query_text = ""
         if request.use_evidence_tools and request.messages:
             last_user_message = next(
                 (msg for msg in reversed(request.messages) if msg.role == "user"), None
@@ -374,6 +378,7 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
 
             if last_user_message:
                 query_text = last_user_message.get_text_content()
+                latest_query_text = query_text
                 if query_text:
                     try:
                         agent_run = await starlims_agent_service.run(query_text)
@@ -384,6 +389,14 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                         )
                         agent_steps = agent_run.steps
                         evidence_sources.extend(agent_run.sources)
+                        agent_chart_sources = [
+                            {
+                                "label": f"agent tool '{result.get('tool')}'",
+                                "rows": result.get("rows", []),
+                            }
+                            for result in agent_run.tool_results
+                            if result.get("tool") != RAG_TOOL and result.get("rows")
+                        ]
                         context_addition = f"\n\n{agent_run.prompt_context}"
                         if openai_messages and openai_messages[0]["role"] == "system":
                             openai_messages[0]["content"] += context_addition
@@ -398,46 +411,24 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                     except Exception as e:
                         logger.warning(f"Search agent failed: {str(e)}")
 
-        # Inject chart generation instructions when Excel data is attached
+        # Inject chart generation instructions when chartable data is available.
         excel_data_list = getattr(request, '_excel_data', None)
+        chart_sources = []
         if excel_data_list:
-            import json as json_module
-            chart_instruction = (
-                "\n\n## CHART GENERATION RULES (MANDATORY)\n"
-                "When the user asks you to create a chart, graph, or visualization from the attached data, "
-                "you MUST output a machine-readable CHART_SPEC block. This is NOT optional — the frontend parses this block to render an interactive chart.\n\n"
-                "### Required format (output this EXACTLY — no variations allowed):\n"
-                "CHART_SPEC:{\"chartType\":\"bar\",\"title\":\"My Title\",\"xAxis\":\"column_name\",\"yAxis\":\"column_name\",\"data\":[{\"col1\":\"a\",\"col2\":10},{\"col1\":\"b\",\"col2\":20}]}\n\n"
-                "### Rules:\n"
-                "- chartType must be one of: bar, line, pie, scatter, area\n"
-                "- data must be an array of objects with column names as keys and actual values from the spreadsheet\n"
-                "- yAxis can be a string (single series) or an array of strings (multiple series)\n"
-                "- Place the CHART_SPEC block at the END of your response, after your text analysis\n"
-                "- Only include CHART_SPEC when the user explicitly requests a chart or visualization\n\n"
-                "### WRONG (NEVER do this):\n"
-                "```\nLineChart\n  title: My Title\n  x-axis [a, b, c]\n  y-axis \"Revenue\"\n  data [1, 2, 3]\n```\n"
-                "The above plaintext/ASCII format WILL NOT render. You MUST use the CHART_SPEC JSON format.\n"
-            )
-
-            # Also include the raw JSON data for the LLM to reference
             for excel_data in excel_data_list:
                 for sheet in excel_data.get("sheets", []):
-                    # Serialize data, converting dates
-                    serializable_data = []
-                    for row in sheet["data"]:
-                        serializable_row = {}
-                        for k, v in row.items():
-                            if hasattr(v, "isoformat"):
-                                serializable_row[k] = v.isoformat()
-                            elif v is not None:
-                                serializable_row[k] = v
-                        serializable_data.append(serializable_row)
-                    chart_instruction += (
-                        f"\n\nFull data from sheet '{sheet['name']}' in {excel_data['filename']} "
-                        f"(use this for CHART_SPEC data):\n"
-                        f"{json_module.dumps(serializable_data[:200])}"  # Cap at 200 rows
+                    chart_sources.append(
+                        {
+                            "label": f"sheet '{sheet['name']}' in {excel_data['filename']}",
+                            "rows": sheet.get("data", []),
+                        }
                     )
 
+        if agent_chart_sources and is_chart_request(latest_query_text):
+            chart_sources.extend(agent_chart_sources)
+
+        if chart_sources:
+            chart_instruction = build_chart_instruction(chart_sources)
             if openai_messages and openai_messages[0]["role"] == "system":
                 openai_messages[0]["content"] += chart_instruction
             else:
