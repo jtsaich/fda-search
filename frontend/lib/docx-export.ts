@@ -84,6 +84,10 @@ export async function downloadDocxExport(payload: DocxExportPayload): Promise<st
   }
 
   const blob = await response.blob();
+  if (blob.size === 0) {
+    throw new Error("DOCX export returned an empty file");
+  }
+
   const filename =
     getFilenameFromContentDisposition(response.headers.get("Content-Disposition")) ||
     DEFAULT_DOCX_FILENAME;
@@ -111,23 +115,29 @@ function triggerBrowserDownload(blob: Blob, filename: string): void {
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  link.style.display = "none";
   document.body.appendChild(link);
   link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+
+  window.setTimeout(() => {
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, 1000);
 }
 
 async function getExportErrorMessage(response: Response): Promise<string> {
+  const fallback = `DOCX export failed (${response.status})`;
+
   try {
     const errorBody = await response.json();
     if (isRecord(errorBody) && typeof errorBody.detail === "string") {
-      return errorBody.detail;
+      return `${errorBody.detail} (${response.status})`;
     }
   } catch {
-    // Non-JSON backend errors still surface as a failed export below.
+    // Non-JSON backend errors still surface with the HTTP status below.
   }
 
-  return "Failed to export DOCX";
+  return fallback;
 }
 
 function getStringField(record: Record<string, unknown>, key: string): string | undefined {

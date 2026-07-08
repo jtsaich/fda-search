@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { toast } from "sonner";
 import { DefaultChatTransport, UIMessage } from "ai";
 import { saveChat } from "@/lib/chat-store";
 import {
@@ -272,12 +273,16 @@ export function ChatInterface({
     });
 
     try {
-      await downloadDocxExport({
+      const filename = await downloadDocxExport({
         title: "FDA Search Answer",
         content,
         sources: getDocxSourcesFromParts(message.parts),
       });
+      toast.success(`Downloaded ${filename}`);
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "DOCX download failed";
+      toast.error(message);
       console.error("DOCX download failed:", error);
     } finally {
       setDocxDownloadingMessageIds((current) => {
