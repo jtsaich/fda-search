@@ -10,12 +10,20 @@ import {
   Activity,
   Paperclip,
   X,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DefaultChatTransport, UIMessage } from "ai";
 import { saveChat } from "@/lib/chat-store";
+import {
+  downloadDocxExport,
+  getDocxSourcesFromParts,
+  getRagSourceMetadata,
+  getVisibleAssistantText,
+  stripChartSpecs,
+} from "@/lib/docx-export";
 import { SystemPromptManager } from "./SystemPromptManager";
 import { ChartRenderer, type ChartData } from "./ChartRenderer";
 
@@ -25,15 +33,6 @@ interface ChatInterfaceProps {
   selectedModel: string;
 }
 
-// Matches the AI SDK SourceDocumentUIPart providerMetadata structure
-interface SourceMetadata {
-  rag: {
-    chunk_index: number;
-    score: number;
-    text: string;
-    document_id: string;
-  };
-}
 
 // Token usage data from the backend
 interface UsageData {
@@ -59,22 +58,28 @@ const DEFAULT_SYSTEM_PROMPT =
 const CHART_SPEC_REGEX = /CHART_SPEC:\s*(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})/g;
 
 /** Extract ChartData[] from raw text parts (fallback when data-chart parts are missing after reload) */
-function parseChartSpecsFromText(parts: { type: string; text?: string }[]): ChartData[] {
+function parseChartSpecsFromText(parts: readonly unknown[]): ChartData[] {
   const charts: ChartData[] = [];
   for (const part of parts) {
-    if (part.type !== "text" || !part.text) continue;
+    if (!isRecord(part) || part.type !== "text" || typeof part.text !== "string") {
+      continue;
+    }
     const regex = new RegExp(CHART_SPEC_REGEX.source, "g");
     let match;
     while ((match = regex.exec(part.text)) !== null) {
       try {
-        const spec = JSON.parse(match[1]);
+        const spec: unknown = JSON.parse(match[1]);
+        if (!isRecord(spec)) continue;
+
         charts.push({
-          chartType: spec.chartType ?? "bar",
-          title: spec.title ?? "",
-          data: spec.data ?? [],
-          xAxis: spec.xAxis ?? "",
-          yAxis: spec.yAxis ?? "",
-          filename: spec.filename,
+          chartType: getStringValue(spec.chartType, "bar"),
+          title: getStringValue(spec.title, ""),
+          data: Array.isArray(spec.data) ? spec.data.filter(isRecord) : [],
+          xAxis: getStringValue(spec.xAxis, ""),
+          yAxis: Array.isArray(spec.yAxis)
+            ? spec.yAxis.filter((value) => typeof value === "string")
+            : getStringValue(spec.yAxis, ""),
+          filename: typeof spec.filename === "string" ? spec.filename : undefined,
         });
       } catch {
         // skip invalid JSON
@@ -112,6 +117,104 @@ function getAgentStepText(step: AgentStep) {
   return step.status || "Step completed.";
 }
 
+interface ChartDataPart {
+  key: string | number;
+  chart: ChartData;
+}
+
+interface SourceDisplayData {
+  title?: string;
+  filename?: string;
+  score?: number;
+  text?: string;
+}
+
+
+function getUsageData(part: unknown): UsageData | null {
+  if (!isRecord(part) || part.type !== "data-usage") return null;
+  return isUsageData(part.data) ? part.data : null;
+}
+
+function getAgentStepData(part: unknown): AgentStep | null {
+  if (!isRecord(part) || part.type !== "data-agent-step" || !isRecord(part.data)) {
+    return null;
+  }
+
+  return {
+    agent: getOptionalString(part.data.agent),
+    status: getOptionalString(part.data.status),
+    generated_by: getOptionalString(part.data.generated_by),
+    intent: getOptionalString(part.data.intent),
+    clarified_question: getOptionalString(part.data.clarified_question),
+    tools: Array.isArray(part.data.tools)
+      ? part.data.tools.filter((tool) => typeof tool === "string")
+      : undefined,
+    tool_reason: getOptionalString(part.data.tool_reason),
+    issues: Array.isArray(part.data.issues)
+      ? part.data.issues.filter((issue) => typeof issue === "string")
+      : undefined,
+  };
+}
+
+
+function getChartDataPart(part: unknown, fallbackKey: number): ChartDataPart | null {
+  if (!isRecord(part) || part.type !== "data-chart" || !isChartData(part.data)) {
+    return null;
+  }
+
+  return {
+    key: typeof part.id === "string" ? part.id : fallbackKey,
+    chart: part.data,
+  };
+}
+
+function getSourceDisplayData(part: unknown): SourceDisplayData | null {
+  if (!isRecord(part) || part.type !== "source-document") return null;
+
+  const rag = getRagSourceMetadata(part.providerMetadata);
+  return {
+    title: getOptionalString(part.title),
+    filename: getOptionalString(part.filename),
+    score: rag.score,
+    text: rag.text,
+  };
+}
+
+function isUsageData(value: unknown): value is UsageData {
+  return (
+    isRecord(value) &&
+    typeof value.prompt_tokens === "number" &&
+    typeof value.completion_tokens === "number" &&
+    typeof value.total_tokens === "number"
+  );
+}
+
+function isChartData(value: unknown): value is ChartData {
+  return (
+    isRecord(value) &&
+    typeof value.chartType === "string" &&
+    typeof value.title === "string" &&
+    Array.isArray(value.data) &&
+    typeof value.xAxis === "string" &&
+    (typeof value.yAxis === "string" ||
+      (Array.isArray(value.yAxis) &&
+        value.yAxis.every((axis) => typeof axis === "string"))) &&
+    (value.filename === undefined || typeof value.filename === "string")
+  );
+}
+
+function getStringValue(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function getOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export function ChatInterface({
   id,
   initialMessages,
@@ -122,6 +225,9 @@ export function ChatInterface({
 
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<FileList | undefined>(undefined);
+  const [docxDownloadingMessageIds, setDocxDownloadingMessageIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { messages, sendMessage, status } = useChat({
@@ -155,6 +261,32 @@ export function ChatInterface({
       }
     },
   });
+  const handleDownloadDocx = async (message: UIMessage) => {
+    const content = getVisibleAssistantText(message.parts);
+    if (!content || docxDownloadingMessageIds.has(message.id)) return;
+
+    setDocxDownloadingMessageIds((current) => {
+      const next = new Set(current);
+      next.add(message.id);
+      return next;
+    });
+
+    try {
+      await downloadDocxExport({
+        title: "FDA Search Answer",
+        content,
+        sources: getDocxSourcesFromParts(message.parts),
+      });
+    } catch (error) {
+      console.error("DOCX download failed:", error);
+    } finally {
+      setDocxDownloadingMessageIds((current) => {
+        const next = new Set(current);
+        next.delete(message.id);
+        return next;
+      });
+    }
+  };
 
   return (
     <div className="flex flex-1 min-h-0 flex-col w-full bg-white">
@@ -235,11 +367,39 @@ export function ChatInterface({
                 >
                   {message.role === "assistant" ? (
                     <>
+                      {/* Download visible assistant answer as DOCX */}
+                      {(() => {
+                        const visibleText = getVisibleAssistantText(message.parts);
+                        if (!visibleText) return null;
+
+                        const isDocxDownloading = docxDownloadingMessageIds.has(message.id);
+                        return (
+                          <div className="not-prose mb-2 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void handleDownloadDocx(message);
+                              }}
+                              disabled={isDocxDownloading}
+                              title="Download answer as DOCX"
+                              className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {isDocxDownloading ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Download className="h-3.5 w-3.5" />
+                              )}
+                              DOCX
+                            </button>
+                          </div>
+                        );
+                      })()}
+
                       {/* Render streamed agent process steps */}
                       {(() => {
-                        const agentStepParts = message.parts.filter(
-                          (part) => part.type === "data-agent-step"
-                        ) as unknown as { type: string; data: AgentStep }[];
+                        const agentStepParts = message.parts
+                          .map((part) => getAgentStepData(part))
+                          .filter((step) => step !== null);
                         if (agentStepParts.length === 0) return null;
 
                         return (
@@ -249,19 +409,16 @@ export function ChatInterface({
                               Agent process
                             </div>
                             <div className="space-y-1.5">
-                              {agentStepParts.map((part, idx) => {
-                                const step = part.data;
-                                return (
-                                  <div key={idx} className="flex gap-2">
-                                    <span className="min-w-20 font-medium text-slate-600">
-                                      {getAgentLabel(step.agent)}
-                                    </span>
-                                    <span className="text-slate-700">
-                                      {getAgentStepText(step)}
-                                    </span>
-                                  </div>
-                                );
-                              })}
+                              {agentStepParts.map((step, idx) => (
+                                <div key={idx} className="flex gap-2">
+                                  <span className="min-w-20 font-medium text-slate-600">
+                                    {getAgentLabel(step.agent)}
+                                  </span>
+                                  <span className="text-slate-700">
+                                    {getAgentStepText(step)}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         );
@@ -271,10 +428,7 @@ export function ChatInterface({
                       {message.parts
                         .filter((part) => part.type === "text")
                         .map((part, idx) => {
-                          const cleaned = part.text.replace(
-                            /CHART_SPEC:\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g,
-                            ""
-                          ).trim();
+                          const cleaned = stripChartSpecs(part.text);
                           if (!cleaned) return null;
                           return (
                             <ReactMarkdown key={idx} remarkPlugins={[remarkGfm]}>
@@ -284,92 +438,76 @@ export function ChatInterface({
                         })}
 
                       {/* Render token usage */}
-                      {message.parts
-                        .filter((part) => part.type === "data-usage")
-                        .map((part, idx) => {
-                          const usage = (part as { type: string; data: UsageData }).data;
-                          return (
-                            <div
-                              key={idx}
-                              className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500 flex gap-3"
-                            >
-                              <span>Input: {usage.prompt_tokens} tokens</span>
-                              <span>Output: {usage.completion_tokens} tokens</span>
-                            </div>
-                          );
-                        })}
+                      {message.parts.map((part, idx) => {
+                        const usage = getUsageData(part);
+                        if (!usage) return null;
+
+                        return (
+                          <div
+                            key={idx}
+                            className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500 flex gap-3"
+                          >
+                            <span>Input: {usage.prompt_tokens} tokens</span>
+                            <span>Output: {usage.completion_tokens} tokens</span>
+                          </div>
+                        );
+                      })}
 
                       {/* Render chart-data parts (AI SDK DataUIPart or fallback from CHART_SPEC in text) */}
                       {(() => {
-                        const dataChartParts = message.parts.filter(
-                          (part) => part.type === "data-chart"
-                        );
+                        const dataChartParts = message.parts
+                          .map((part, idx) => getChartDataPart(part, idx))
+                          .filter((part) => part !== null);
                         if (dataChartParts.length > 0) {
-                          return dataChartParts.map((part, idx) => {
-                            const dataPart = part as unknown as {
-                              type: string;
-                              id?: string;
-                              data: ChartData;
-                            };
-                            return (
-                              <ChartRenderer key={dataPart.id || idx} chart={dataPart.data} />
-                            );
-                          });
+                          return dataChartParts.map((part) => (
+                            <ChartRenderer key={part.key} chart={part.chart} />
+                          ));
                         }
                         // Fallback: parse CHART_SPEC from text (e.g. after page refresh)
-                        const parsed = parseChartSpecsFromText(
-                          message.parts as { type: string; text?: string }[]
-                        );
+                        const parsed = parseChartSpecsFromText(message.parts);
                         return parsed.map((chart, idx) => (
                           <ChartRenderer key={`parsed-${idx}`} chart={chart} />
                         ));
                       })()}
 
                       {/* Render source-document parts */}
-                      {message.parts.filter(
-                        (part) => part.type === "source-document"
-                      ).length > 0 && (
-                        <div className="mt-4 pt-3 border-t border-gray-300">
-                          <div className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
-                            <BookOpen className="h-3 w-3" />
-                            Sources Referenced:
-                          </div>
-                          <div className="space-y-2">
-                            {message.parts
-                              .filter((part) => part.type === "source-document")
-                              .map((part, idx) => {
-                                // AI SDK SourceDocumentUIPart
-                                if (part.type !== "source-document")
-                                  return null;
-                                const metadata = part.providerMetadata as
-                                  | SourceMetadata
-                                  | undefined;
-                                const rag = metadata?.rag;
-                                return (
-                                  <details
-                                    key={idx}
-                                    className="text-xs bg-blue-50 rounded p-2 border border-blue-200"
-                                  >
-                                    <summary className="cursor-pointer font-medium text-blue-700 hover:text-blue-900">
-                                      {part.title} - Score: {rag?.score ?? 0}
-                                    </summary>
-                                    <div className="mt-2 space-y-1">
-                                      <div className="text-gray-600">
-                                        <span className="font-semibold">
-                                          File:
-                                        </span>{" "}
-                                        {part.filename}
-                                      </div>
-                                      <div className="text-gray-700 whitespace-pre-wrap border-t pt-2">
-                                        {rag?.text || "No content available"}
-                                      </div>
+                      {(() => {
+                        const sourceParts = message.parts
+                          .map((part) => getSourceDisplayData(part))
+                          .filter((source) => source !== null);
+                        if (sourceParts.length === 0) return null;
+
+                        return (
+                          <div className="mt-4 pt-3 border-t border-gray-300">
+                            <div className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
+                              <BookOpen className="h-3 w-3" />
+                              Sources Referenced:
+                            </div>
+                            <div className="space-y-2">
+                              {sourceParts.map((source, idx) => (
+                                <details
+                                  key={idx}
+                                  className="text-xs bg-blue-50 rounded p-2 border border-blue-200"
+                                >
+                                  <summary className="cursor-pointer font-medium text-blue-700 hover:text-blue-900">
+                                    {source.title || source.filename || "Untitled source"} - Score:{" "}
+                                    {source.score ?? 0}
+                                  </summary>
+                                  <div className="mt-2 space-y-1">
+                                    <div className="text-gray-600">
+                                      <span className="font-semibold">File:</span>{" "}
+                                      {source.filename || "Unknown"}
                                     </div>
-                                  </details>
-                                );
-                              })}
+                                    <div className="text-gray-700 whitespace-pre-wrap border-t pt-2">
+                                      {source.text || "No content available"}
+                                    </div>
+                                  </div>
+                                </details>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </>
                   ) : (
                     <>

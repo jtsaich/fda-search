@@ -29,6 +29,7 @@ from services.chat_protocol import (
 )
 from routes.documents import router as documents_router
 from routes.health import router as health_router
+from routes.exports import router as exports_router
 
 # Configure logging to use stdout instead of stderr
 import sys
@@ -121,7 +122,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["x-vercel-ai-data-stream"],
+    expose_headers=["x-vercel-ai-data-stream", "Content-Disposition"],
 )
 
 
@@ -144,6 +145,7 @@ class DirectQueryResponse(BaseModel):
 # Include routers
 app.include_router(documents_router)
 app.include_router(health_router)
+app.include_router(exports_router)
 
 
 @app.get("/")
