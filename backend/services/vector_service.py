@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import List, Dict, Any, Union
 from pinecone import Pinecone
@@ -70,8 +71,11 @@ class VectorService:
             return []
 
         try:
-            results = self.index.query(
-                vector=query_embedding, top_k=top_k, include_metadata=True
+            results = await asyncio.to_thread(
+                self.index.query,
+                vector=query_embedding,
+                top_k=top_k,
+                include_metadata=True,
             )
 
             # Handle the results properly

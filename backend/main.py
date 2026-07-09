@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 from typing import List, Optional
+import asyncio
 import os
 import shutil
 from pathlib import Path
@@ -21,14 +22,17 @@ from services.chat_protocol import (
     ChatRequest,
     DEFAULT_MODEL,
     build_chart_instruction,
+    stream_report_generation,
     stream_text,
     count_message_tokens,
     truncate_messages_to_fit,
     get_model_limit,
     is_chart_request,
+    is_docx_report_request,
 )
 from routes.documents import router as documents_router
 from routes.health import router as health_router
+from routes.exports import router as exports_router
 
 # Configure logging to use stdout instead of stderr
 import sys
@@ -48,6 +52,8 @@ vector_service = VectorService()
 embedding_service = EmbeddingService()
 llm_service = LLMService()
 excel_service = ExcelService()
+EVIDENCE_AGENT_TIMEOUT_SECONDS = 8
+
 
 
 async def knowledge_base_search_tool(query_text: str) -> dict:
@@ -114,6 +120,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
         "https://frontend-git-main-jtsaichs-projects.vercel.app",
         "https://frontend-psi-plum-51.vercel.app",
     ],
@@ -121,7 +128,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["x-vercel-ai-data-stream"],
+    expose_headers=["x-vercel-ai-data-stream", "Content-Disposition"],
 )
 
 
@@ -144,6 +151,7 @@ class DirectQueryResponse(BaseModel):
 # Include routers
 app.include_router(documents_router)
 app.include_router(health_router)
+app.include_router(exports_router)
 
 
 @app.get("/")
@@ -366,50 +374,59 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                 }
             )
 
+        # Identify the latest user request once; evidence tools, charts, and report
+        # export tools all use the same request boundary.
+        last_user_message = next(
+            (msg for msg in reversed(request.messages) if msg.role == "user"), None
+        )
+        latest_query_text = (
+            last_user_message.get_text_content() if last_user_message else ""
+        )
+        wants_docx_report = is_docx_report_request(latest_query_text)
+
         # If evidence tools are enabled, let the agent choose tools for the last user message.
         evidence_sources = []
         agent_steps = None
         agent_chart_sources = []
-        latest_query_text = ""
-        if request.use_evidence_tools and request.messages:
-            last_user_message = next(
-                (msg for msg in reversed(request.messages) if msg.role == "user"), None
-            )
-
-            if last_user_message:
-                query_text = last_user_message.get_text_content()
-                latest_query_text = query_text
-                if query_text:
-                    try:
-                        agent_run = await starlims_agent_service.run(query_text)
-                        logger.info(
-                            "Search agent selected intent %s with tools %s",
-                            agent_run.contract.intent,
-                            agent_run.contract.tools,
-                        )
-                        agent_steps = agent_run.steps
-                        evidence_sources.extend(agent_run.sources)
-                        agent_chart_sources = [
-                            {
-                                "label": f"agent tool '{result.get('tool')}'",
-                                "rows": result.get("rows", []),
-                            }
-                            for result in agent_run.tool_results
-                            if result.get("tool") != RAG_TOOL and result.get("rows")
-                        ]
-                        context_addition = f"\n\n{agent_run.prompt_context}"
-                        if openai_messages and openai_messages[0]["role"] == "system":
-                            openai_messages[0]["content"] += context_addition
-                        else:
-                            openai_messages.insert(
-                                0,
-                                {
-                                    "role": "system",
-                                    "content": agent_run.prompt_context,
-                                },
-                            )
-                    except Exception as e:
-                        logger.warning(f"Search agent failed: {str(e)}")
+        if request.use_evidence_tools and latest_query_text and not wants_docx_report:
+            try:
+                agent_run = await asyncio.wait_for(
+                    starlims_agent_service.run(latest_query_text),
+                    timeout=EVIDENCE_AGENT_TIMEOUT_SECONDS,
+                )
+                logger.info(
+                    "Search agent selected intent %s with tools %s",
+                    agent_run.contract.intent,
+                    agent_run.contract.tools,
+                )
+                agent_steps = agent_run.steps
+                evidence_sources.extend(agent_run.sources)
+                agent_chart_sources = [
+                    {
+                        "label": f"agent tool '{result.get('tool')}'",
+                        "rows": result.get("rows", []),
+                    }
+                    for result in agent_run.tool_results
+                    if result.get("tool") != RAG_TOOL and result.get("rows")
+                ]
+                context_addition = f"\n\n{agent_run.prompt_context}"
+                if openai_messages and openai_messages[0]["role"] == "system":
+                    openai_messages[0]["content"] += context_addition
+                else:
+                    openai_messages.insert(
+                        0,
+                        {
+                            "role": "system",
+                            "content": agent_run.prompt_context,
+                        },
+                    )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Search agent timed out after %ss; continuing without evidence",
+                    EVIDENCE_AGENT_TIMEOUT_SECONDS,
+                )
+            except Exception as e:
+                logger.warning(f"Search agent failed: {str(e)}")
 
         # Inject chart generation instructions when chartable data is available.
         excel_data_list = getattr(request, '_excel_data', None)
@@ -458,18 +475,30 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
         # Collect Excel filenames for chart-data metadata
         excel_filenames = [d["filename"] for d in excel_data_list] if excel_data_list else None
 
-        response = StreamingResponse(
-            stream_text(
-                llm_service.client,
-                openai_messages,
-                request.model or DEFAULT_MODEL,
-                0.7 if not request.use_evidence_tools else 0.1,
-                sources=evidence_sources if evidence_sources else None,
-                excel_filenames=excel_filenames,
-                agent_steps=agent_steps,
-            ),
-            media_type="text/event-stream",
-        )
+        if wants_docx_report:
+            response = StreamingResponse(
+                stream_report_generation(
+                    client=llm_service.client,
+                    messages=openai_messages,
+                    model=model,
+                    sources=evidence_sources if evidence_sources else None,
+                    agent_steps=agent_steps,
+                ),
+                media_type="text/event-stream",
+            )
+        else:
+            response = StreamingResponse(
+                stream_text(
+                    llm_service.client,
+                    openai_messages,
+                    request.model or DEFAULT_MODEL,
+                    0.7 if not request.use_evidence_tools else 0.1,
+                    sources=evidence_sources if evidence_sources else None,
+                    excel_filenames=excel_filenames,
+                    agent_steps=agent_steps,
+                ),
+                media_type="text/event-stream",
+            )
         response.headers["x-vercel-ai-data-stream"] = "v1"
 
         # Required headers for SSE streaming

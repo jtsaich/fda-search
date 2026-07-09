@@ -13,12 +13,25 @@ import tiktoken
 
 logger = logging.getLogger(__name__)
 
+def _env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        logger.warning("Ignoring invalid integer env var %s=%r", name, value)
+        return default
+
+
 # Default model — overridable via OPENROUTER_DEFAULT_MODEL env var so the
 # active model can be swapped from the Railway dashboard without redeploying.
 DEFAULT_MODEL = os.getenv(
     "OPENROUTER_DEFAULT_MODEL",
     "google/gemini-2.5-flash-lite-preview-09-2025",
 )
+
+CHAT_COMPLETION_MAX_TOKENS = _env_int("OPENROUTER_CHAT_MAX_TOKENS", 4000)
 
 # Model context limits
 MODEL_CONTEXT_LIMITS = {
@@ -64,7 +77,7 @@ def count_message_tokens(messages: list) -> int:
 
 
 def truncate_messages_to_fit(
-    messages: list, max_tokens: int, reserved: int = 1000
+    messages: list, max_tokens: int, reserved: int = CHAT_COMPLETION_MAX_TOKENS
 ) -> list:
     """Truncate messages to fit limit, preserving system msg and recent messages."""
     available = max_tokens - reserved
@@ -208,10 +221,49 @@ CHART_KEYWORDS = (
     "圓餅",
 )
 
+DOCX_ACTION_KEYWORDS = (
+    "download",
+    "downloadable",
+    "generate",
+    "create",
+    "prepare",
+    "make",
+    "write",
+    "output",
+    "produce",
+    "export",
+    "generate file",
+    "create file",
+    "生成文件",
+    "產生文件",
+    "下载",
+    "生成",
+    "產生",
+    "下載",
+)
+DOCX_ARTIFACT_KEYWORDS = (
+    "docx",
+    ".docx",
+    "report",
+    "document",
+    "sop",
+    "報告",
+    "报告",
+    "文件",
+    "檔案",
+)
+
 
 def is_chart_request(text: str) -> bool:
     normalized = text.lower()
     return any(keyword in normalized for keyword in CHART_KEYWORDS)
+
+
+def is_docx_report_request(text: str) -> bool:
+    normalized = text.lower()
+    return any(action in normalized for action in DOCX_ACTION_KEYWORDS) and any(
+        artifact in normalized for artifact in DOCX_ARTIFACT_KEYWORDS
+    )
 
 
 def json_safe_rows(rows: list[dict[str, Any]], limit: int = 200) -> list[dict[str, Any]]:
@@ -268,7 +320,7 @@ def _create_stream(client, model: str, messages: list, temperature: float):
             messages=messages,
             stream=True,
             temperature=temperature,
-            max_tokens=1000,
+            max_tokens=CHAT_COMPLETION_MAX_TOKENS,
             stream_options={"include_usage": True},
         )
     except Exception as e:
@@ -298,7 +350,7 @@ def _create_stream(client, model: str, messages: list, temperature: float):
                     messages=messages,
                     stream=True,
                     temperature=temperature,
-                    max_tokens=1000,
+                    max_tokens=CHAT_COMPLETION_MAX_TOKENS,
                     stream_options={"include_usage": True},
                 )
         raise
@@ -328,6 +380,145 @@ def _extract_chart_specs(text: str) -> tuple[str, list[dict]]:
     # Remove all CHART_SPEC blocks from the text
     cleaned = re.sub(r'CHART_SPEC:\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', '', text).strip()
     return cleaned, charts
+
+def stream_report_generation(
+    *,
+    client: Any,
+    messages: List[Dict[str, Any]],
+    model: str,
+    sources: Optional[List[Dict[str, Any]]] = None,
+    agent_steps: Optional[List[Dict[str, Any]]] = None,
+):
+    report_steps = list(agent_steps or [])
+    report_steps.append(
+        {
+            "agent": "docx_report_tool",
+            "status": "generating_report_artifact",
+        }
+    )
+
+    try:
+        for step in report_steps:
+            data = json.dumps({"type": "data-agent-step", "data": step})
+            yield f"data: {data}\n\n"
+
+        from services.report_service import generate_docx_report_artifact
+
+        report = generate_docx_report_artifact(
+            client=client,
+            messages=messages,
+            model=model,
+            sources=sources,
+        )
+        data = json.dumps(
+            {
+                "type": "data-agent-step",
+                "data": {
+                    "agent": "docx_report_tool",
+                    "status": "generated_report_artifact",
+                    "title": report.title,
+                },
+            }
+        )
+        yield f"data: {data}\n\n"
+
+        yield from stream_report_artifact(report, sources=sources)
+    except Exception as e:
+        logger.error(f"Error generating report artifact: {str(e)}")
+        data = json.dumps(
+            {
+                "type": "data-agent-step",
+                "data": {
+                    "agent": "docx_report_tool",
+                    "status": "failed",
+                    "issues": [str(e)],
+                },
+            }
+        )
+        yield f"data: {data}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+
+def stream_report_artifact(
+    report: Any,
+    sources: Optional[List[Dict[str, Any]]] = None,
+    agent_steps: Optional[List[Dict[str, Any]]] = None,
+):
+    import uuid
+
+    report_sources = _docx_export_sources(sources or getattr(report, "sources", []))
+    report_payload = {
+        "title": getattr(report, "title", "Generated Report"),
+        "content": getattr(report, "content", ""),
+        "sources": report_sources,
+    }
+    summary = getattr(report, "summary", "Generated a downloadable DOCX report.").strip()
+
+    try:
+        if agent_steps:
+            for step in agent_steps:
+                data = json.dumps({"type": "data-agent-step", "data": step})
+                yield f"data: {data}\n\n"
+
+        if sources:
+            for source in sources:
+                source_id = str(uuid.uuid4())
+                data = json.dumps(
+                    {
+                        "type": "source-document",
+                        "sourceId": source_id,
+                        "mediaType": "text/plain",
+                        "title": f"{source.get('filename', 'Unknown')} - Chunk {source.get('chunk_index', 0) + 1}",
+                        "filename": source.get("filename", "Unknown"),
+                        "providerMetadata": {
+                            "rag": {
+                                "chunk_index": source.get("chunk_index", 0),
+                                "score": source.get("score", 0),
+                                "text": source.get("text", ""),
+                                "document_id": source.get("id", ""),
+                            }
+                        },
+                    }
+                )
+                yield f"data: {data}\n\n"
+
+        data = json.dumps(
+            {
+                "type": "data-docx-report",
+                "id": str(uuid.uuid4()),
+                "data": report_payload,
+            }
+        )
+        yield f"data: {data}\n\n"
+
+        text_id = str(uuid.uuid4())
+        if summary:
+            yield f"data: {json.dumps({'type': 'text-start', 'id': text_id})}\n\n"
+            yield f"data: {json.dumps({'type': 'text-delta', 'id': text_id, 'delta': summary})}\n\n"
+            yield f"data: {json.dumps({'type': 'text-end', 'id': text_id})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'finish'})}\n\n"
+    except Exception as e:
+        logger.error(f"Error during report artifact streaming: {str(e)}")
+        yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+    finally:
+        yield "data: [DONE]\n\n"
+
+
+def _docx_export_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    export_sources = []
+    for source in sources:
+        export_sources.append(
+            {
+                "title": source.get("title")
+                or f"{source.get('filename', 'Unknown')} - Chunk {source.get('chunk_index', 0) + 1}",
+                "filename": source.get("filename"),
+                "score": source.get("score"),
+                "text": source.get("text"),
+            }
+        )
+    return export_sources
 
 
 def stream_text(
