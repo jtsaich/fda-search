@@ -117,6 +117,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
         "https://frontend-git-main-jtsaichs-projects.vercel.app",
         "https://frontend-psi-plum-51.vercel.app",
     ],
