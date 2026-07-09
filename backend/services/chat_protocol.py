@@ -13,12 +13,25 @@ import tiktoken
 
 logger = logging.getLogger(__name__)
 
+def _env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        logger.warning("Ignoring invalid integer env var %s=%r", name, value)
+        return default
+
+
 # Default model — overridable via OPENROUTER_DEFAULT_MODEL env var so the
 # active model can be swapped from the Railway dashboard without redeploying.
 DEFAULT_MODEL = os.getenv(
     "OPENROUTER_DEFAULT_MODEL",
     "google/gemini-2.5-flash-lite-preview-09-2025",
 )
+
+CHAT_COMPLETION_MAX_TOKENS = _env_int("OPENROUTER_CHAT_MAX_TOKENS", 4000)
 
 # Model context limits
 MODEL_CONTEXT_LIMITS = {
@@ -64,7 +77,7 @@ def count_message_tokens(messages: list) -> int:
 
 
 def truncate_messages_to_fit(
-    messages: list, max_tokens: int, reserved: int = 1000
+    messages: list, max_tokens: int, reserved: int = CHAT_COMPLETION_MAX_TOKENS
 ) -> list:
     """Truncate messages to fit limit, preserving system msg and recent messages."""
     available = max_tokens - reserved
@@ -307,7 +320,7 @@ def _create_stream(client, model: str, messages: list, temperature: float):
             messages=messages,
             stream=True,
             temperature=temperature,
-            max_tokens=1000,
+            max_tokens=CHAT_COMPLETION_MAX_TOKENS,
             stream_options={"include_usage": True},
         )
     except Exception as e:
@@ -337,7 +350,7 @@ def _create_stream(client, model: str, messages: list, temperature: float):
                     messages=messages,
                     stream=True,
                     temperature=temperature,
-                    max_tokens=1000,
+                    max_tokens=CHAT_COMPLETION_MAX_TOKENS,
                     stream_options={"include_usage": True},
                 )
         raise
