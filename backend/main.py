@@ -378,12 +378,13 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
         latest_query_text = (
             last_user_message.get_text_content() if last_user_message else ""
         )
+        wants_docx_report = is_docx_report_request(latest_query_text)
 
         # If evidence tools are enabled, let the agent choose tools for the last user message.
         evidence_sources = []
         agent_steps = None
         agent_chart_sources = []
-        if request.use_evidence_tools and latest_query_text:
+        if request.use_evidence_tools and latest_query_text and not wants_docx_report:
             try:
                 agent_run = await starlims_agent_service.run(latest_query_text)
                 logger.info(
@@ -462,7 +463,7 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
         # Collect Excel filenames for chart-data metadata
         excel_filenames = [d["filename"] for d in excel_data_list] if excel_data_list else None
 
-        if is_docx_report_request(latest_query_text):
+        if wants_docx_report:
             response = StreamingResponse(
                 stream_report_generation(
                     client=llm_service.client,
