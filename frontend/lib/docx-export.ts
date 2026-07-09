@@ -11,6 +11,8 @@ export interface DocxExportPayload {
   sources?: DocxSourcePayload[];
 }
 
+export type DocxReportArtifactPayload = DocxExportPayload;
+
 export interface RagSourceMetadata {
   score?: number;
   text?: string;
@@ -24,42 +26,32 @@ export function stripChartSpecs(text: string): string {
   return text.replace(CHART_SPEC_BLOCK_REGEX, "").trim();
 }
 
-export function getVisibleAssistantText(parts: readonly unknown[]): string {
-  const textParts: string[] = [];
 
+export function getDocxReportFromParts(
+  parts: readonly unknown[]
+): DocxReportArtifactPayload | null {
   for (const part of parts) {
-    if (!isRecord(part) || part.type !== "text") continue;
-    const text = getStringField(part, "text");
-    if (!text) continue;
-
-    const cleaned = stripChartSpecs(text);
-    if (cleaned) textParts.push(cleaned);
-  }
-
-  return textParts.join("\n\n").trim();
-}
-
-export function getDocxSourcesFromParts(parts: readonly unknown[]): DocxSourcePayload[] {
-  const sources: DocxSourcePayload[] = [];
-
-  for (const part of parts) {
-    if (!isRecord(part) || part.type !== "source-document") continue;
-
-    const metadata = getRagSourceMetadata(part.providerMetadata);
-    const source: DocxSourcePayload = {
-      title: getStringField(part, "title"),
-      filename: getStringField(part, "filename"),
-      score: metadata.score,
-      text: metadata.text,
-    };
-
-    if (Object.values(source).some((value) => value !== undefined && value !== "")) {
-      sources.push(source);
+    if (!isRecord(part) || part.type !== "data-docx-report" || !isRecord(part.data)) {
+      continue;
     }
+
+    const content = getStringField(part.data, "content");
+    if (!content) return null;
+
+    const sources = Array.isArray(part.data.sources)
+      ? part.data.sources.map(getDocxSourcePayload).filter((source) => source !== null)
+      : undefined;
+
+    return {
+      title: getStringField(part.data, "title") || "Generated Report",
+      content,
+      sources,
+    };
   }
 
-  return sources;
+  return null;
 }
+
 
 export function getRagSourceMetadata(providerMetadata: unknown): RagSourceMetadata {
   if (!isRecord(providerMetadata) || !isRecord(providerMetadata.rag)) {
@@ -138,6 +130,21 @@ async function getExportErrorMessage(response: Response): Promise<string> {
   }
 
   return fallback;
+}
+
+function getDocxSourcePayload(value: unknown): DocxSourcePayload | null {
+  if (!isRecord(value)) return null;
+
+  const source: DocxSourcePayload = {
+    title: getStringField(value, "title"),
+    filename: getStringField(value, "filename"),
+    score: getNumberField(value, "score"),
+    text: getStringField(value, "text"),
+  };
+
+  return Object.values(source).some((value) => value !== undefined && value !== "")
+    ? source
+    : null;
 }
 
 function getStringField(record: Record<string, unknown>, key: string): string | undefined {

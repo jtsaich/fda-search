@@ -20,9 +20,8 @@ import { DefaultChatTransport, UIMessage } from "ai";
 import { saveChat } from "@/lib/chat-store";
 import {
   downloadDocxExport,
-  getDocxSourcesFromParts,
+  getDocxReportFromParts,
   getRagSourceMetadata,
-  getVisibleAssistantText,
   stripChartSpecs,
 } from "@/lib/docx-export";
 import { SystemPromptManager } from "./SystemPromptManager";
@@ -263,8 +262,8 @@ export function ChatInterface({
     },
   });
   const handleDownloadDocx = async (message: UIMessage) => {
-    const content = getVisibleAssistantText(message.parts);
-    if (!content || docxDownloadingMessageIds.has(message.id)) return;
+    const report = getDocxReportFromParts(message.parts);
+    if (!report || docxDownloadingMessageIds.has(message.id)) return;
 
     setDocxDownloadingMessageIds((current) => {
       const next = new Set(current);
@@ -273,11 +272,7 @@ export function ChatInterface({
     });
 
     try {
-      const filename = await downloadDocxExport({
-        title: "FDA Search Answer",
-        content,
-        sources: getDocxSourcesFromParts(message.parts),
-      });
+      const filename = await downloadDocxExport(report);
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       const message =
@@ -372,10 +367,10 @@ export function ChatInterface({
                 >
                   {message.role === "assistant" ? (
                     <>
-                      {/* Download visible assistant answer as DOCX */}
+                      {/* Download generated report artifact as DOCX */}
                       {(() => {
-                        const visibleText = getVisibleAssistantText(message.parts);
-                        if (!visibleText) return null;
+                        const report = getDocxReportFromParts(message.parts);
+                        if (!report) return null;
 
                         const isDocxDownloading = docxDownloadingMessageIds.has(message.id);
                         return (
@@ -386,7 +381,7 @@ export function ChatInterface({
                                 void handleDownloadDocx(message);
                               }}
                               disabled={isDocxDownloading}
-                              title="Download answer as DOCX"
+                              title="Download generated report as DOCX"
                               className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {isDocxDownloading ? (
@@ -394,7 +389,7 @@ export function ChatInterface({
                               ) : (
                                 <Download className="h-3.5 w-3.5" />
                               )}
-                              DOCX
+                              Report DOCX
                             </button>
                           </div>
                         );
