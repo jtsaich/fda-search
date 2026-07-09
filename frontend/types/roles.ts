@@ -1,3 +1,6 @@
+import { dictionaries } from "@/lib/i18n/dictionaries";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+
 // Role management types for FDA RAG Assistant
 // Updated to support dynamic roles
 
@@ -62,53 +65,42 @@ export interface RolePermission {
   permission_id: string;
 }
 
-// Default role labels (for system roles, can be overridden by database)
-export const DEFAULT_ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrator',
-  researcher: 'Researcher',
-  viewer: 'Viewer',
-};
-
-// Default role descriptions (for system roles, can be overridden by database)
-export const DEFAULT_ROLE_DESCRIPTIONS: Record<string, string> = {
-  admin: 'Full system access including user and role management',
-  researcher: 'Can upload, manage documents and create chats',
-  viewer: 'Can view documents and create chats (read-only access)',
-};
-
-// Default permission labels (can be extended)
-export const DEFAULT_PERMISSION_LABELS: Record<string, string> = {
-  'documents.upload': 'Upload Documents',
-  'documents.view': 'View Documents',
-  'documents.delete': 'Delete Documents',
-  'chat.create': 'Create Chats',
-  'chat.view': 'View Chats',
-  'chat.delete': 'Delete Chats',
-  'users.view': 'View Users',
-  'users.manage': 'Manage Users',
-  'roles.manage': 'Manage Roles',
-};
-
-// Backwards compatibility exports
-export const ROLE_LABELS = DEFAULT_ROLE_LABELS;
-export const ROLE_DESCRIPTIONS = DEFAULT_ROLE_DESCRIPTIONS;
-export const PERMISSION_LABELS = DEFAULT_PERMISSION_LABELS;
-
-// Helper to get role display name (with fallback)
-export function getRoleDisplayName(role: string, roleData?: RoleData[]): string {
-  const foundRole = roleData?.find(r => r.name === role);
-  return foundRole?.display_name || DEFAULT_ROLE_LABELS[role] || role;
+// Resolve a built-in role/permission label from the active locale's dictionary,
+// falling back to the default locale when a key is missing.
+function translateLabel(key: string, locale: Locale): string | undefined {
+  const dict = dictionaries[locale] as Record<string, string>;
+  const fallback = dictionaries[DEFAULT_LOCALE] as Record<string, string>;
+  return dict[key] ?? fallback[key];
 }
 
-// Helper to get role description (with fallback)
-export function getRoleDescription(role: string, roleData?: RoleData[]): string {
-  const foundRole = roleData?.find(r => r.name === role);
-  return foundRole?.description || DEFAULT_ROLE_DESCRIPTIONS[role] || '';
+// Helper to get role display name. Custom DB roles keep their own display_name;
+// system roles resolve from the localized dictionary.
+export function getRoleDisplayName(
+  role: string,
+  locale: Locale,
+  roleData?: RoleData[]
+): string {
+  const foundRole = roleData?.find((r) => r.name === role);
+  return (
+    foundRole?.display_name || translateLabel(`role.label.${role}`, locale) || role
+  );
 }
 
-// Helper to get permission label (with fallback)
-export function getPermissionLabel(permission: string): string {
-  return DEFAULT_PERMISSION_LABELS[permission] || permission;
+// Helper to get role description (with locale-aware system fallback).
+export function getRoleDescription(
+  role: string,
+  locale: Locale,
+  roleData?: RoleData[]
+): string {
+  const foundRole = roleData?.find((r) => r.name === role);
+  return (
+    foundRole?.description || translateLabel(`role.desc.${role}`, locale) || ""
+  );
+}
+
+// Helper to get permission label (with locale-aware system fallback).
+export function getPermissionLabel(permission: string, locale: Locale): string {
+  return translateLabel(`perm.label.${permission}`, locale) || permission;
 }
 
 // Helper to check if role is a system role

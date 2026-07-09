@@ -4,6 +4,8 @@ import { FormEvent, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useTranslation } from "@/components/i18n-provider";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import type { Session } from "@supabase/supabase-js";
 
 type Mode = "signIn" | "signUp";
@@ -16,6 +18,7 @@ export function LoginForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
+  const { t } = useTranslation();
 
   async function syncServerAuth(
     event: "SIGNED_IN" | "TOKEN_REFRESHED",
@@ -55,7 +58,7 @@ export function LoginForm() {
 
         const response = await syncServerAuth("SIGNED_IN", data.session);
         if (!response?.ok) {
-          throw new Error("Failed to sync authentication session");
+          throw new Error(t("auth.syncFailed"));
         }
         window.location.assign("/");
       } else {
@@ -71,16 +74,16 @@ export function LoginForm() {
         if (data.session) {
           const response = await syncServerAuth("SIGNED_IN", data.session);
           if (!response?.ok) {
-            throw new Error("Failed to sync authentication session");
+            throw new Error(t("auth.syncFailed"));
           }
           window.location.assign("/");
           return;
         }
 
-        setMessage("Check your email to confirm your account.");
+        setMessage(t("auth.checkEmailConfirm"));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed");
+      setError(err instanceof Error ? err.message : t("auth.authFailed"));
     } finally {
       setLoading(false);
     }
@@ -89,8 +92,11 @@ export function LoginForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg border border-gray-200">
+        <div className="mb-4 flex justify-end">
+          <LanguageSwitcher />
+        </div>
         <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-          {mode === "signIn" ? "Sign in to continue" : "Create your account"}
+          {mode === "signIn" ? t("auth.signInToContinue") : t("auth.createYourAccount")}
         </h1>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -99,7 +105,7 @@ export function LoginForm() {
               htmlFor="email"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Email
+              {t("common.email")}
             </label>
             <input
               id="email"
@@ -117,7 +123,7 @@ export function LoginForm() {
               htmlFor="password"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Password
+              {t("auth.password")}
             </label>
             <input
               id="password"
@@ -138,7 +144,7 @@ export function LoginForm() {
                 href="/forgot-password"
                 className="text-sm font-medium text-blue-600 hover:text-blue-700"
               >
-                Forgot password?
+                {t("auth.forgotPassword")}
               </Link>
             </div>
           )}
@@ -161,7 +167,7 @@ export function LoginForm() {
             className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {mode === "signIn" ? "Sign In" : "Create Account"}
+            {mode === "signIn" ? t("auth.signIn") : t("auth.createAccount")}
           </button>
         </form>
 
@@ -176,7 +182,7 @@ export function LoginForm() {
               }}
               className="font-medium text-blue-600 hover:text-blue-700"
             >
-              Need an account? Sign up
+              {t("auth.needAccount")}
             </button>
           ) : (
             <button
@@ -188,7 +194,7 @@ export function LoginForm() {
               }}
               className="font-medium text-blue-600 hover:text-blue-700"
             >
-              Already registered? Sign in
+              {t("auth.alreadyRegistered")}
             </button>
           )}
         </div>

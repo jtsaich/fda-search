@@ -26,6 +26,7 @@ import {
 } from "@/lib/docx-export";
 import { SystemPromptManager } from "./SystemPromptManager";
 import { ChartRenderer, type ChartData } from "./ChartRenderer";
+import { useTranslation } from "@/components/i18n-provider";
 
 interface ChatInterfaceProps {
   id?: string;
@@ -87,34 +88,6 @@ function parseChartSpecsFromText(parts: readonly unknown[]): ChartData[] {
     }
   }
   return charts;
-}
-
-function getAgentLabel(agent?: string) {
-  if (agent === "contract_generator") return "Generator";
-  if (agent === "tool_runner") return "Tool runner";
-  if (agent === "evidence_evaluator") return "Evaluator";
-  return agent || "Agent";
-}
-
-function getAgentStepText(step: AgentStep) {
-  if (step.agent === "contract_generator") {
-    const tools = step.tools?.length ? ` Tools: ${step.tools.join(", ")}.` : "";
-    const clarified = step.clarified_question
-      ? ` Clarified: ${step.clarified_question}.`
-      : "";
-    return `${step.generated_by === "llm" ? "LLM" : "Rule"} generator selected intent "${step.intent || "unknown"}."${clarified}${tools}`;
-  }
-  if (step.agent === "tool_runner") {
-    return step.tools?.length
-      ? `Ran ${step.tools.join(", ")}.`
-      : "No evidence tools were run.";
-  }
-  if (step.agent === "evidence_evaluator") {
-    return step.issues?.length
-      ? `Evidence rejected: ${step.issues.join("; ")}`
-      : "Evidence approved for answer generation.";
-  }
-  return step.status || "Step completed.";
 }
 
 interface ChartDataPart {
@@ -220,6 +193,7 @@ export function ChatInterface({
   initialMessages,
   selectedModel,
 }: ChatInterfaceProps) {
+  const { t } = useTranslation();
   const [useEvidenceTools, setUseEvidenceTools] = useState(true);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
 
@@ -273,10 +247,10 @@ export function ChatInterface({
 
     try {
       const filename = await downloadDocxExport(report);
-      toast.success(`Downloaded ${filename}`);
+      toast.success(t("chat.downloadedToast", { filename }));
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "DOCX download failed";
+        error instanceof Error ? error.message : t("chat.docxDownloadFailed");
       toast.error(message);
       console.error("DOCX download failed:", error);
     } finally {
@@ -288,6 +262,43 @@ export function ChatInterface({
     }
   };
 
+  const getAgentLabel = (agent?: string) => {
+    if (agent === "contract_generator") return t("chat.agentGenerator");
+    if (agent === "tool_runner") return t("chat.agentToolRunner");
+    if (agent === "evidence_evaluator") return t("chat.agentEvaluator");
+    return agent || t("chat.agentDefault");
+  };
+
+  const getAgentStepText = (step: AgentStep) => {
+    if (step.agent === "contract_generator") {
+      const source =
+        step.generated_by === "llm"
+          ? t("chat.generatedByLlm")
+          : t("chat.generatedByRule");
+      const intent = step.intent || t("chat.intentUnknown");
+      const clarified = step.clarified_question
+        ? t("chat.clarified", { q: step.clarified_question })
+        : "";
+      const tools = step.tools?.length
+        ? t("chat.toolsFragment", { tools: step.tools.join(", ") })
+        : "";
+      return (
+        t("chat.generatorSelectedIntent", { source, intent }) + clarified + tools
+      );
+    }
+    if (step.agent === "tool_runner") {
+      return step.tools?.length
+        ? t("chat.ranTools", { tools: step.tools.join(", ") })
+        : t("chat.noEvidenceTools");
+    }
+    if (step.agent === "evidence_evaluator") {
+      return step.issues?.length
+        ? t("chat.evidenceRejected", { issues: step.issues.join("; ") })
+        : t("chat.evidenceApproved");
+    }
+    return step.status || t("chat.stepCompleted");
+  };
+
   return (
     <div className="flex flex-1 min-h-0 flex-col w-full bg-white">
       {/* Toggle Control */}
@@ -295,7 +306,7 @@ export function ChatInterface({
         <div className="flex items-center justify-between">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium text-gray-700">
-              Query Mode:
+              {t("chat.queryMode")}
             </span>
             <button
               onClick={() => setUseEvidenceTools(true)}
@@ -307,7 +318,7 @@ export function ChatInterface({
               )}
             >
               <BookOpen className="h-4 w-4" />
-              Use Evidence Tools
+              {t("chat.useEvidenceTools")}
             </button>
             <button
               onClick={() => setUseEvidenceTools(false)}
@@ -319,11 +330,11 @@ export function ChatInterface({
               )}
             >
               <MessageCircle className="h-4 w-4" />
-              Model Only
+              {t("chat.modelOnly")}
             </button>
           </div>
           <div className="text-xs text-gray-500">
-            {useEvidenceTools ? "Agent can use SQL and knowledge-base tools" : "No tools, model-only response"}
+            {useEvidenceTools ? t("chat.evidenceToolsHint") : t("chat.modelOnlyHint")}
           </div>
         </div>
 
@@ -337,9 +348,9 @@ export function ChatInterface({
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 mt-8">
-            <p className="text-sm mt-2">Start typing to ask questions</p>
+            <p className="text-sm mt-2">{t("chat.startTyping")}</p>
             <p className="text-xs mt-4 text-gray-400">
-              Toggle between evidence tools and model-only responses
+              {t("chat.toggleHint")}
             </p>
           </div>
         ) : (
@@ -381,7 +392,7 @@ export function ChatInterface({
                                 void handleDownloadDocx(message);
                               }}
                               disabled={isDocxDownloading}
-                              title="Download generated report as DOCX"
+                              title={t("chat.downloadReportDocxTitle")}
                               className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {isDocxDownloading ? (
@@ -389,7 +400,7 @@ export function ChatInterface({
                               ) : (
                                 <Download className="h-3.5 w-3.5" />
                               )}
-                              Report DOCX
+                              {t("chat.reportDocx")}
                             </button>
                           </div>
                         );
@@ -406,7 +417,7 @@ export function ChatInterface({
                           <div className="mb-3 rounded-md border border-slate-200 bg-white/70 p-2 text-xs text-slate-700">
                             <div className="mb-1.5 flex items-center gap-1.5 font-semibold text-slate-800">
                               <Activity className="h-3.5 w-3.5" />
-                              Agent process
+                              {t("chat.agentProcess")}
                             </div>
                             <div className="space-y-1.5">
                               {agentStepParts.map((step, idx) => (
@@ -447,8 +458,8 @@ export function ChatInterface({
                             key={idx}
                             className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500 flex gap-3"
                           >
-                            <span>Input: {usage.prompt_tokens} tokens</span>
-                            <span>Output: {usage.completion_tokens} tokens</span>
+                            <span>{t("chat.inputTokens", { n: usage.prompt_tokens })}</span>
+                            <span>{t("chat.outputTokens", { n: usage.completion_tokens })}</span>
                           </div>
                         );
                       })}
@@ -481,7 +492,7 @@ export function ChatInterface({
                           <div className="mt-4 pt-3 border-t border-gray-300">
                             <div className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
                               <BookOpen className="h-3 w-3" />
-                              Sources Referenced:
+                              {t("chat.sourcesReferenced")}
                             </div>
                             <div className="space-y-2">
                               {sourceParts.map((source, idx) => (
@@ -490,16 +501,16 @@ export function ChatInterface({
                                   className="text-xs bg-blue-50 rounded p-2 border border-blue-200"
                                 >
                                   <summary className="cursor-pointer font-medium text-blue-700 hover:text-blue-900">
-                                    {source.title || source.filename || "Untitled source"} - Score:{" "}
-                                    {source.score ?? 0}
+                                    {source.title || source.filename || t("chat.untitledSource")}{" "}
+                                    {t("chat.sourceScore", { n: source.score ?? 0 })}
                                   </summary>
                                   <div className="mt-2 space-y-1">
                                     <div className="text-gray-600">
-                                      <span className="font-semibold">File:</span>{" "}
-                                      {source.filename || "Unknown"}
+                                      <span className="font-semibold">{t("chat.fileLabel")}</span>{" "}
+                                      {source.filename || t("chat.unknownFilename")}
                                     </div>
                                     <div className="text-gray-700 whitespace-pre-wrap border-t pt-2">
-                                      {source.text || "No content available"}
+                                      {source.text || t("chat.noContentAvailable")}
                                     </div>
                                   </div>
                                 </details>
@@ -528,7 +539,7 @@ export function ChatInterface({
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={part.url}
-                                alt="Uploaded image"
+                                alt={t("chat.uploadedImageAlt")}
                                 className="rounded-md max-w-xs"
                               />
                             </div>
@@ -625,7 +636,7 @@ export function ChatInterface({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={status !== "ready"}
-            placeholder="Ask questions about pharmaceutical development and regulations..."
+            placeholder={t("chat.inputPlaceholder")}
             className="flex-1 px-4 py-2 border rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button

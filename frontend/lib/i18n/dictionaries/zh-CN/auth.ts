@@ -1,0 +1,27 @@
+import type { auth as EnAuth } from "../en/auth";
+
+export const auth: Record<keyof typeof EnAuth, string> = {
+  "auth.signInToContinue": "登录以继续",
+  "auth.createYourAccount": "创建您的账户",
+  "auth.password": "密码",
+  "auth.forgotPassword": "忘记密码？",
+  "auth.signIn": "登录",
+  "auth.createAccount": "创建账户",
+  "auth.needAccount": "还没有账户？注册",
+  "auth.alreadyRegistered": "已有账户？登录",
+  "auth.checkEmailConfirm": "请查收邮件以确认您的账户。",
+  "auth.syncFailed": "同步身份验证会话失败",
+  "auth.authFailed": "身份验证失败",
+  "auth.backToLogin": "返回登录",
+  "auth.resetYourPassword": "重置您的密码",
+  "auth.resetInstructions": "请输入您的邮箱地址，我们将向您发送重置密码的链接。",
+  "auth.sendResetLink": "发送重置链接",
+  "auth.checkEmailReset": "请查收邮件以获取密码重置链接。",
+  "auth.sendResetFailed": "发送重置邮件失败",
+  "auth.setNewPassword": "设置新密码",
+  "auth.enterNewPassword": "请在下方输入您的新密码。",
+  "auth.newPassword": "新密码",
+  "auth.passwordUpdated": "密码更新成功。正在跳转到登录页面……",
+  "auth.updatePasswordFailed": "更新密码失败",
+  "auth.updatePassword": "更新密码",
+};

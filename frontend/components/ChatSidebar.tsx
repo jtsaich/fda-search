@@ -5,6 +5,7 @@ import { listChats, deleteChat } from "@/lib/chat-store";
 import { MessageSquare, Plus, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslation } from "@/components/i18n-provider";
 
 interface Chat {
   id: string;
@@ -15,6 +16,7 @@ interface Chat {
 }
 
 export function ChatSidebar() {
+  const { t, locale } = useTranslation();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -61,7 +63,7 @@ export function ChatSidebar() {
     e.preventDefault(); // Prevent navigation
     e.stopPropagation();
 
-    if (!confirm("Delete this chat? This cannot be undone.")) {
+    if (!confirm(t("nav.deleteChatConfirm"))) {
       return;
     }
 
@@ -76,7 +78,7 @@ export function ChatSidebar() {
       }
     } catch (error) {
       console.error("Error deleting chat:", error);
-      alert("Failed to delete chat");
+      alert(t("nav.deleteChatFailed"));
     } finally {
       setDeletingId(null);
     }
@@ -90,12 +92,12 @@ export function ChatSidebar() {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t("nav.justNow");
+    if (diffMins < 60) return t("nav.minutesAgo", { n: diffMins });
+    if (diffHours < 24) return t("nav.hoursAgo", { n: diffHours });
+    if (diffDays < 7) return t("nav.daysAgo", { n: diffDays });
 
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString(locale, {
       month: "short",
       day: "numeric",
     });
@@ -116,7 +118,7 @@ export function ChatSidebar() {
     }
 
     // Fallback for empty chats
-    return "New chat";
+    return t("nav.newChatTitle");
   }
 
   return (
@@ -128,7 +130,7 @@ export function ChatSidebar() {
           className="flex items-center gap-2 w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
         >
           <Plus className="h-5 w-5" />
-          New Chat
+          {t("nav.newChatButton")}
         </Link>
       </div>
 
@@ -141,9 +143,9 @@ export function ChatSidebar() {
         ) : chats.length === 0 ? (
           <div className="text-center py-8 px-4">
             <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">No chat history yet</p>
+            <p className="text-sm text-gray-500">{t("nav.noChatHistory")}</p>
             <p className="text-xs text-gray-400 mt-1">
-              Start a conversation to see it here
+              {t("nav.startConversation")}
             </p>
           </div>
         ) : (
@@ -177,7 +179,7 @@ export function ChatSidebar() {
                   onClick={(e) => handleDeleteChat(chat.id, e)}
                   disabled={deletingId === chat.id}
                   className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition-opacity"
-                  title="Delete chat"
+                  title={t("nav.deleteChat")}
                 >
                   {deletingId === chat.id ? (
                     <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
@@ -194,7 +196,9 @@ export function ChatSidebar() {
       {/* Footer */}
       <div className="p-3 border-t border-gray-200 bg-white">
         <p className="text-xs text-gray-500 text-center">
-          {chats.length} chat{chats.length !== 1 ? "s" : ""} saved
+          {chats.length === 1
+            ? t("nav.oneChatSaved", { n: chats.length })
+            : t("nav.manyChatsSaved", { n: chats.length })}
         </p>
       </div>
     </div>

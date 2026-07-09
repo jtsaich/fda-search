@@ -6,8 +6,10 @@ import { ChatInterface } from "@/components/ChatInterface";
 import { Loader2 } from "lucide-react";
 import { UIMessage } from "ai";
 import { useParams } from "next/navigation";
+import { useTranslation } from "@/components/i18n-provider";
 
 export default function ChatPageWithId() {
+  const { t } = useTranslation();
   const params = useParams();
   const id = params.id as string;
   // Empty string defers to backend's DEFAULT_MODEL (OPENROUTER_DEFAULT_MODEL env var on Railway)
@@ -41,7 +43,7 @@ export default function ChatPageWithId() {
       <div className="flex items-center justify-center h-full bg-gray-50">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <p className="text-gray-600">Loading chat...</p>
+          <p className="text-gray-600">{t("chat.loadingChat")}</p>
         </div>
       </div>
     );

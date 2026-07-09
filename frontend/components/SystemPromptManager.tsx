@@ -29,6 +29,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useTranslation } from "@/components/i18n-provider";
 
 const CUSTOM_PROMPT_VALUE = "__custom_prompt__";
 
@@ -43,6 +44,7 @@ export function SystemPromptManager({
   onSystemPromptChange,
   defaultPrompt,
 }: SystemPromptManagerProps) {
+  const { t, locale } = useTranslation();
   const [systemPrompts, setSystemPrompts] = useState<SystemPrompt[]>([]);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -70,6 +72,10 @@ export function SystemPromptManager({
   const [savingDetailsId, setSavingDetailsId] = useState<string | null>(null);
   const [deletingPromptId, setDeletingPromptId] = useState<string | null>(null);
   const selectedPromptIdRef = useRef<string | null>(null);
+  // Keep the latest translator in a ref so the mount-stable fetchPrompts
+  // callback reports errors in the current locale without re-running on switch.
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const selectedPrompt = useMemo(
     () =>
@@ -130,7 +136,7 @@ export function SystemPromptManager({
       } catch (err) {
         console.error("Failed to load system prompts:", err);
         setLoadError(
-          err instanceof Error ? err.message : "Failed to load system prompts"
+          err instanceof Error ? err.message : tRef.current("systemPrompt.loadError")
         );
       } finally {
         setLoading(false);
@@ -179,11 +185,11 @@ export function SystemPromptManager({
           prompt.id === updated.id ? { ...prompt, ...updated } : prompt
         )
       );
-      toast.success("Persona updated");
+      toast.success(t("systemPrompt.personaUpdated"));
     } catch (err) {
       console.error("Failed to update system prompt:", err);
       toast.error(
-        err instanceof Error ? err.message : "Failed to update persona"
+        err instanceof Error ? err.message : t("systemPrompt.updateFailed")
       );
     } finally {
       setIsSavingPrompt(false);
@@ -197,12 +203,12 @@ export function SystemPromptManager({
     const trimmedContent = creatingPrompt.content.trim();
 
     if (!trimmedName) {
-      toast.error("Name is required");
+      toast.error(t("systemPrompt.nameRequired"));
       return;
     }
 
     if (!trimmedContent) {
-      toast.error("Prompt content is required");
+      toast.error(t("systemPrompt.contentRequired"));
       return;
     }
 
@@ -219,11 +225,11 @@ export function SystemPromptManager({
       onSystemPromptChange(created.content);
       setCreatingPrompt({ name: "", description: "", content: "" });
       setManagerOpen(false);
-      toast.success("New persona created");
+      toast.success(t("systemPrompt.personaCreated"));
     } catch (err) {
       console.error("Failed to create system prompt:", err);
       toast.error(
-        err instanceof Error ? err.message : "Failed to create persona"
+        err instanceof Error ? err.message : t("systemPrompt.createFailed")
       );
     } finally {
       setIsCreatingPrompt(false);
@@ -243,7 +249,7 @@ export function SystemPromptManager({
 
     const trimmedName = editingDetails.name.trim();
     if (!trimmedName) {
-      toast.error("Name is required");
+      toast.error(t("systemPrompt.nameRequired"));
       return;
     }
 
@@ -267,11 +273,11 @@ export function SystemPromptManager({
       }
 
       setEditingPromptId(null);
-      toast.success("Persona details updated");
+      toast.success(t("systemPrompt.detailsUpdated"));
     } catch (err) {
       console.error("Failed to update persona details:", err);
       toast.error(
-        err instanceof Error ? err.message : "Failed to update persona details"
+        err instanceof Error ? err.message : t("systemPrompt.detailsUpdateFailed")
       );
     } finally {
       setSavingDetailsId(null);
@@ -279,7 +285,7 @@ export function SystemPromptManager({
   };
 
   const handleDeletePrompt = async (promptId: string) => {
-    if (!window.confirm("Delete this persona? This action cannot be undone.")) {
+    if (!window.confirm(t("systemPrompt.deleteConfirm"))) {
       return;
     }
 
@@ -307,11 +313,11 @@ export function SystemPromptManager({
         return filtered;
       });
 
-      toast.success("Persona deleted");
+      toast.success(t("systemPrompt.personaDeleted"));
     } catch (err) {
       console.error("Failed to delete persona:", err);
       toast.error(
-        err instanceof Error ? err.message : "Failed to delete persona"
+        err instanceof Error ? err.message : t("systemPrompt.deleteFailed")
       );
     } finally {
       setDeletingPromptId(null);
@@ -328,7 +334,7 @@ export function SystemPromptManager({
     return [
       ...options,
       <option key={CUSTOM_PROMPT_VALUE} value={CUSTOM_PROMPT_VALUE}>
-        Custom prompt
+        {t("systemPrompt.customPrompt")}
       </option>,
     ];
   };
@@ -338,7 +344,7 @@ export function SystemPromptManager({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <label className="text-sm font-medium text-gray-700">
-            System Prompt
+            {t("systemPrompt.title")}
           </label>
           <div className="flex items-center gap-2">
             <select
@@ -348,12 +354,12 @@ export function SystemPromptManager({
               className="text-sm border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {loading ? (
-                <option>Loading prompts…</option>
+                <option>{t("systemPrompt.loadingPrompts")}</option>
               ) : systemPrompts.length > 0 ? (
                 renderPromptOptions()
               ) : (
                 <>
-                  <option value={CUSTOM_PROMPT_VALUE}>Custom prompt</option>
+                  <option value={CUSTOM_PROMPT_VALUE}>{t("systemPrompt.customPrompt")}</option>
                 </>
               )}
             </select>
@@ -365,14 +371,14 @@ export function SystemPromptManager({
                   className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
                 >
                   <Settings className="h-4 w-4" />
-                  Manage
+                  {t("systemPrompt.manage")}
                 </button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Manage System Prompt</DialogTitle>
+                  <DialogTitle>{t("systemPrompt.manageTitle")}</DialogTitle>
                   <DialogDescription>
-                    Edit your active prompt and manage saved personas.
+                    {t("systemPrompt.manageDescription")}
                   </DialogDescription>
                 </DialogHeader>
 
@@ -380,36 +386,32 @@ export function SystemPromptManager({
                   {/* Active Prompt Editor */}
                   <div className="space-y-2 border border-blue-200 rounded-lg bg-blue-50/30 p-4">
                     <label className="text-sm font-semibold text-gray-800">
-                      Active Prompt
+                      {t("systemPrompt.activePrompt")}
                     </label>
                     <textarea
                       value={systemPrompt}
                       onChange={(event) => {
                         onSystemPromptChange(event.target.value);
                       }}
-                      placeholder="Enter your system prompt here..."
+                      placeholder={t("systemPrompt.activePromptPlaceholder")}
                       className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none bg-white"
                       rows={6}
                     />
                     {!selectedPrompt && (
                       <p className="text-xs text-gray-500">
-                        You are using a custom prompt. Save it as a persona to
-                        reuse it later.
+                        {t("systemPrompt.customPromptHint")}
                       </p>
                     )}
                     {selectedPrompt && !hasSelectedPromptChanges && (
                       <p className="text-xs text-gray-500">
-                        Changes are synced with the selected persona.
+                        {t("systemPrompt.syncedHint")}
                       </p>
                     )}
                     {selectedPrompt && hasSelectedPromptChanges && (
                       <>
                         <p className="text-xs text-amber-600 flex items-center gap-1">
                           <AlertCircle className="h-3.5 w-3.5" />
-                          Unsaved changes to{" "}
-                          <span className="font-medium">
-                            {selectedPrompt.name}
-                          </span>
+                          {t("systemPrompt.unsavedChanges", { name: selectedPrompt.name })}
                         </p>
                         <div className="flex items-center gap-2">
                           <button
@@ -420,7 +422,7 @@ export function SystemPromptManager({
                             className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
-                            Reset
+                            {t("systemPrompt.reset")}
                           </button>
                           <button
                             type="button"
@@ -438,7 +440,7 @@ export function SystemPromptManager({
                             ) : (
                               <Save className="h-3.5 w-3.5" />
                             )}
-                            Save Changes
+                            {t("systemPrompt.saveChanges")}
                           </button>
                         </div>
                       </>
@@ -452,12 +454,12 @@ export function SystemPromptManager({
                   >
                     <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
                       <PlusCircle className="h-4 w-4 text-blue-600" />
-                      Create New Persona
+                      {t("systemPrompt.createNew")}
                     </h3>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div className="sm:col-span-1">
                         <label className="text-xs font-medium text-gray-600">
-                          Name
+                          {t("common.name")}
                         </label>
                         <input
                           type="text"
@@ -468,13 +470,13 @@ export function SystemPromptManager({
                               name: event.target.value,
                             }))
                           }
-                          placeholder="e.g. Regulatory Expert"
+                          placeholder={t("systemPrompt.namePlaceholder")}
                           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                       <div className="sm:col-span-1">
                         <label className="text-xs font-medium text-gray-600">
-                          Description (optional)
+                          {t("systemPrompt.descriptionOptional")}
                         </label>
                         <input
                           type="text"
@@ -485,14 +487,14 @@ export function SystemPromptManager({
                               description: event.target.value,
                             }))
                           }
-                          placeholder="Short summary of this persona"
+                          placeholder={t("systemPrompt.descriptionPlaceholder")}
                           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-600">
-                        Prompt Content
+                        {t("systemPrompt.promptContent")}
                       </label>
                       <textarea
                         value={creatingPrompt.content}
@@ -502,7 +504,7 @@ export function SystemPromptManager({
                             content: event.target.value,
                           }))
                         }
-                        placeholder="Paste or compose the full prompt..."
+                        placeholder={t("systemPrompt.promptContentPlaceholder")}
                         rows={4}
                         className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                       />
@@ -519,7 +521,7 @@ export function SystemPromptManager({
                         }
                         className="text-xs text-gray-600 hover:text-gray-800 underline"
                       >
-                        Use active prompt
+                        {t("systemPrompt.useActivePrompt")}
                       </button>
                       <button
                         type="submit"
@@ -536,7 +538,7 @@ export function SystemPromptManager({
                         ) : (
                           <PlusCircle className="h-4 w-4" />
                         )}
-                        Save Persona
+                        {t("systemPrompt.savePersona")}
                       </button>
                     </div>
                   </form>
@@ -546,13 +548,13 @@ export function SystemPromptManager({
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
                         <Pencil className="h-4 w-4 text-purple-600" />
-                        Existing Personas
+                        {t("systemPrompt.existingPersonas")}
                       </h3>
                       <button
                         type="button"
                         onClick={() => void fetchPrompts()}
                         className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
-                        title="Refresh personas from Supabase"
+                        title={t("systemPrompt.refreshTitle")}
                         disabled={loading}
                       >
                         {loading ? (
@@ -560,13 +562,12 @@ export function SystemPromptManager({
                         ) : (
                           <RefreshCcw className="h-3.5 w-3.5" />
                         )}
-                        Refresh
+                        {t("common.refresh")}
                       </button>
                     </div>
                     {systemPrompts.length === 0 ? (
                       <p className="text-sm text-gray-500">
-                        No personas saved yet. Create one to reuse it across
-                        sessions.
+                        {t("systemPrompt.noPersonas")}
                       </p>
                     ) : (
                       <ul className="space-y-3">
@@ -586,8 +587,9 @@ export function SystemPromptManager({
                                   </p>
                                 )}
                                 <p className="text-xs text-gray-500">
-                                  Updated{" "}
-                                  {new Date(prompt.updated_at).toLocaleString()}
+                                  {t("systemPrompt.updated", {
+                                    date: new Date(prompt.updated_at).toLocaleString(locale),
+                                  })}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
@@ -600,7 +602,7 @@ export function SystemPromptManager({
                                   }}
                                   className="text-xs text-blue-600 hover:text-blue-800 underline"
                                 >
-                                  Use
+                                  {t("systemPrompt.use")}
                                 </button>
                                 <button
                                   type="button"
@@ -609,7 +611,7 @@ export function SystemPromptManager({
                                   }
                                   className="text-xs text-gray-600 hover:text-gray-800 underline"
                                 >
-                                  Edit details
+                                  {t("systemPrompt.editDetails")}
                                 </button>
                                 <button
                                   type="button"
@@ -622,7 +624,7 @@ export function SystemPromptManager({
                                   ) : (
                                     <Trash2 className="h-3.5 w-3.5" />
                                   )}
-                                  Delete
+                                  {t("common.delete")}
                                 </button>
                               </div>
                             </div>
@@ -632,7 +634,7 @@ export function SystemPromptManager({
                                 <div className="grid gap-2 sm:grid-cols-2">
                                   <div>
                                     <label className="text-xs font-medium text-gray-600">
-                                      Name
+                                      {t("common.name")}
                                     </label>
                                     <input
                                       type="text"
@@ -648,7 +650,7 @@ export function SystemPromptManager({
                                   </div>
                                   <div>
                                     <label className="text-xs font-medium text-gray-600">
-                                      Description
+                                      {t("common.description")}
                                     </label>
                                     <input
                                       type="text"
@@ -669,7 +671,7 @@ export function SystemPromptManager({
                                     onClick={() => setEditingPromptId(null)}
                                     className="text-xs text-gray-600 hover:text-gray-800 underline"
                                   >
-                                    Cancel
+                                    {t("common.cancel")}
                                   </button>
                                   <button
                                     type="button"
@@ -687,7 +689,7 @@ export function SystemPromptManager({
                                     ) : (
                                       <Pencil className="h-4 w-4" />
                                     )}
-                                    Save Details
+                                    {t("systemPrompt.saveDetails")}
                                   </button>
                                 </div>
                               </div>

@@ -1,0 +1,28 @@
+export const documents = {
+  "documents.uploadFailed": "Upload failed",
+  "documents.dropFilesHere": "Drop the files here...",
+  "documents.dragDropHere": "Drag & drop documents here",
+  "documents.clickToSelect":
+    "or click to select files (PDF, TXT, DOCX, CSV, XLSX)",
+  "documents.filesHeading": "Files",
+  "documents.uploaded": "✓ Uploaded",
+  "documents.failed": "Failed",
+  "documents.uploading": "Uploading...",
+  "documents.uploadOneFile": "Upload {n} file",
+  "documents.uploadManyFiles": "Upload {n} files",
+  "documents.confirmDelete":
+    'Are you sure you want to delete "{filename}"? This will remove all associated vectors from the database. This action cannot be undone.',
+  "documents.deleteFailed": "Failed to delete document: {detail}",
+  "documents.unknownError": "Unknown error",
+  "documents.deleteFailedRetry": "Failed to delete document. Please try again.",
+  "documents.noDocuments": "No documents uploaded",
+  "documents.uploadToStart": "Upload documents to get started",
+  "documents.uploadedDocuments": "Uploaded Documents",
+  "documents.colDocument": "Document",
+  "documents.colSize": "Size",
+  "documents.colChunks": "Chunks",
+  "documents.colUploaded": "Uploaded",
+  "documents.colActions": "Actions",
+  "documents.idLabel": "ID: {id}",
+  "documents.deleteTitle": "Delete document",
+} as const;
