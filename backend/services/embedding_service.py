@@ -1,3 +1,4 @@
+import asyncio
 from typing import List
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
@@ -28,22 +29,22 @@ class EmbeddingService:
 
     async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for a list of texts"""
-        self._ensure_model()
+        await asyncio.to_thread(self._ensure_model)
 
         try:
             # Generate embeddings for all texts at once (more efficient)
-            embeddings = self.model.encode(texts)
+            embeddings = await asyncio.to_thread(self.model.encode, texts)
             return [embedding.tolist() for embedding in embeddings]
         except Exception as e:
             raise Exception(f"Error generating embeddings: {str(e)}")
 
     async def generate_embedding(self, text: str) -> List[float]:
         """Generate embedding for a single text"""
-        self._ensure_model()
+        await asyncio.to_thread(self._ensure_model)
 
         try:
             # Generate embedding for single text
-            embedding = self.model.encode([text])
+            embedding = await asyncio.to_thread(self.model.encode, [text])
             return embedding[0].tolist()  # Return as list of floats
         except Exception as e:
             raise Exception(f"Error generating embedding: {str(e)}")

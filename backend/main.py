@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 from typing import List, Optional
+import asyncio
 import os
 import shutil
 from pathlib import Path
@@ -51,6 +52,8 @@ vector_service = VectorService()
 embedding_service = EmbeddingService()
 llm_service = LLMService()
 excel_service = ExcelService()
+EVIDENCE_AGENT_TIMEOUT_SECONDS = 8
+
 
 
 async def knowledge_base_search_tool(query_text: str) -> dict:
@@ -387,7 +390,10 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
         agent_chart_sources = []
         if request.use_evidence_tools and latest_query_text and not wants_docx_report:
             try:
-                agent_run = await starlims_agent_service.run(latest_query_text)
+                agent_run = await asyncio.wait_for(
+                    starlims_agent_service.run(latest_query_text),
+                    timeout=EVIDENCE_AGENT_TIMEOUT_SECONDS,
+                )
                 logger.info(
                     "Search agent selected intent %s with tools %s",
                     agent_run.contract.intent,
@@ -414,6 +420,11 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
                             "content": agent_run.prompt_context,
                         },
                     )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Search agent timed out after %ss; continuing without evidence",
+                    EVIDENCE_AGENT_TIMEOUT_SECONDS,
+                )
             except Exception as e:
                 logger.warning(f"Search agent failed: {str(e)}")
 
