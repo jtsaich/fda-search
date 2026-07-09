@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { domToPng } from "modern-screenshot";
+import { useTranslation } from "@/components/i18n-provider";
 import {
   BarChart,
   Bar,
@@ -45,6 +46,7 @@ const COLORS = [
 
 export function ChartRenderer({ chart }: { chart: ChartData }) {
   const chartRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
   const [downloading, setDownloading] = useState(false);
 
   const yAxes = useMemo(
@@ -174,11 +176,11 @@ export function ChartRenderer({ chart }: { chart: ChartData }) {
       default:
         return (
           <div className="text-sm text-gray-500 p-4">
-            Unsupported chart type: {chart.chartType}
+            {t("chat.unsupportedChartType", { type: chart.chartType })}
           </div>
         );
     }
-  }, [chart, yAxes]);
+  }, [chart, yAxes, t]);
 
   return (
     <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
@@ -193,7 +195,7 @@ export function ChartRenderer({ chart }: { chart: ChartData }) {
         <button
           onClick={handleDownload}
           disabled={downloading}
-          title="Download chart as PNG"
+          title={t("chat.downloadChartPngTitle")}
           className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
         >
           {downloading ? (
@@ -201,7 +203,7 @@ export function ChartRenderer({ chart }: { chart: ChartData }) {
           ) : (
             <Download className="h-3.5 w-3.5" />
           )}
-          PNG
+          {t("chat.pngButton")}
         </button>
       </div>
       <div ref={chartRef}>
@@ -211,7 +213,7 @@ export function ChartRenderer({ chart }: { chart: ChartData }) {
       </div>
       {chart.filename && (
         <p className="text-xs text-gray-400 mt-1 text-center">
-          Source: {chart.filename}
+          {t("chat.chartSource", { filename: chart.filename })}
         </p>
       )}
     </div>

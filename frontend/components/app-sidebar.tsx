@@ -35,42 +35,43 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { NavUser } from "@/components/nav-user";
+import { useTranslation } from "@/components/i18n-provider";
 
 import bioTrendLogo from "@/public/bio-trend-logo.png";
 
 const navItems = [
   {
-    title: "Chat",
+    id: "chat",
     url: "/chat",
     icon: MessageSquare,
   },
   {
-    title: "Knowledge Base",
+    id: "knowledgeBase",
     icon: Database,
     items: [
       {
-        title: "Upload",
+        id: "upload",
         url: "/upload",
         icon: Upload,
       },
       {
-        title: "Documents",
+        id: "documents",
         url: "/documents",
         icon: FileText,
       },
     ],
   },
   {
-    title: "Admin",
+    id: "admin",
     icon: Shield,
     items: [
       {
-        title: "Users",
+        id: "users",
         url: "/admin/users",
         icon: Users,
       },
       {
-        title: "Roles",
+        id: "roles",
         url: "/admin/roles",
         icon: ShieldCheck,
       },
@@ -80,6 +81,28 @@ const navItems = [
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
+  const { t } = useTranslation();
+
+  const navLabel = (id: string): string => {
+    switch (id) {
+      case "chat":
+        return t("nav.chat");
+      case "knowledgeBase":
+        return t("nav.knowledgeBase");
+      case "upload":
+        return t("nav.upload");
+      case "documents":
+        return t("nav.documents");
+      case "admin":
+        return t("nav.admin");
+      case "users":
+        return t("nav.users");
+      case "roles":
+        return t("nav.roles");
+      default:
+        return id;
+    }
+  };
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -95,7 +118,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Link href="/">
                   <Image
                     src={bioTrendLogo}
-                    alt="Bio-Trend"
+                    alt={t("nav.logoAlt")}
                     width={436}
                     className="w-full"
                   />
@@ -116,29 +139,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               );
               return (
                 <Collapsible
-                  key={item.title}
+                  key={item.id}
                   asChild
                   defaultOpen={isActive}
                   className="group/collapsible"
                 >
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton tooltip={item.title}>
+                      <SidebarMenuButton tooltip={navLabel(item.id)}>
                         {item.icon && <item.icon />}
-                        <span>{item.title}</span>
+                        <span>{navLabel(item.id)}</span>
                         <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
                         {item.items.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubItem key={subItem.id}>
                             <SidebarMenuSubButton
                               asChild
                               isActive={pathname?.startsWith(subItem.url)}
                             >
                               <Link href={subItem.url}>
-                                <span>{subItem.title}</span>
+                                <span>{navLabel(subItem.id)}</span>
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
@@ -152,15 +175,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
             // Regular menu item
             return (
-              <SidebarMenuItem key={item.title}>
+              <SidebarMenuItem key={item.id}>
                 <SidebarMenuButton
                   asChild
-                  tooltip={item.title}
+                  tooltip={navLabel(item.id)}
                   isActive={pathname?.startsWith(item.url)}
                 >
                   <Link href={item.url}>
                     <item.icon />
-                    <span>{item.title}</span>
+                    <span>{navLabel(item.id)}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

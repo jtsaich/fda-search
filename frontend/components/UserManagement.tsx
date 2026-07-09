@@ -5,9 +5,11 @@ import { Shield, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import { getAllUsers, updateUserRole, deleteUser } from '@/lib/roles';
 import { useUserProfile } from '@/hooks/useRole';
 import type { UserProfile, UserRole } from '@/types/roles';
-import { ROLE_LABELS, ROLE_DESCRIPTIONS } from '@/types/roles';
+import { SYSTEM_ROLES, getRoleDisplayName, getRoleDescription } from '@/types/roles';
+import { useTranslation } from '@/components/i18n-provider';
 
 export function UserManagement() {
+  const { t, locale } = useTranslation();
   const { profile: currentUserProfile } = useUserProfile();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ export function UserManagement() {
       const data = await getAllUsers();
       setUsers(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load users');
+      setError(err instanceof Error ? err.message : t("users.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -40,14 +42,14 @@ export function UserManagement() {
     if (result.success) {
       await loadUsers();
     } else {
-      setError(result.error || 'Failed to update role');
+      setError(result.error || t("users.updateRoleFailed"));
     }
 
     setUpdatingUserId(null);
   }
 
   async function handleDeleteUser(userId: string, userEmail: string) {
-    if (!confirm(`Are you sure you want to delete user ${userEmail}?`)) {
+    if (!confirm(t("users.confirmDelete", { userEmail }))) {
       return;
     }
 
@@ -59,7 +61,7 @@ export function UserManagement() {
     if (result.success) {
       await loadUsers();
     } else {
-      setError(result.error || 'Failed to delete user');
+      setError(result.error || t("users.deleteFailed"));
     }
 
     setUpdatingUserId(null);
@@ -90,16 +92,16 @@ export function UserManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900">User Management</h2>
+          <h2 className="text-2xl font-semibold text-gray-900">{t("users.title")}</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Manage user roles and permissions
+            {t("users.subtitle")}
           </p>
         </div>
         <button
           onClick={loadUsers}
           className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700"
         >
-          Refresh
+          {t("common.refresh")}
         </button>
       </div>
 
@@ -108,7 +110,7 @@ export function UserManagement() {
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
             <div>
-              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <h3 className="text-sm font-medium text-red-800">{t("common.error")}</h3>
               <p className="text-sm text-red-700 mt-1">{error}</p>
             </div>
           </div>
@@ -121,16 +123,16 @@ export function UserManagement() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
+                  {t("users.colUser")}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
+                  {t("users.colRole")}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Joined
+                  {t("users.colJoined")}
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  {t("common.actions")}
                 </th>
               </tr>
             </thead>
@@ -143,7 +145,7 @@ export function UserManagement() {
                         {user.email}
                       </div>
                       {user.id === currentUserProfile?.id && (
-                        <span className="text-xs text-gray-500">(You)</span>
+                        <span className="text-xs text-gray-500">{t("users.you")}</span>
                       )}
                     </div>
                   </td>
@@ -162,17 +164,17 @@ export function UserManagement() {
                           user.role
                         )} disabled:opacity-50 disabled:cursor-not-allowed`}
                       >
-                        <option value="admin">{ROLE_LABELS.admin}</option>
-                        <option value="researcher">{ROLE_LABELS.researcher}</option>
-                        <option value="viewer">{ROLE_LABELS.viewer}</option>
+                        <option value={SYSTEM_ROLES.ADMIN}>{getRoleDisplayName(SYSTEM_ROLES.ADMIN, locale)}</option>
+                        <option value={SYSTEM_ROLES.RESEARCHER}>{getRoleDisplayName(SYSTEM_ROLES.RESEARCHER, locale)}</option>
+                        <option value={SYSTEM_ROLES.VIEWER}>{getRoleDisplayName(SYSTEM_ROLES.VIEWER, locale)}</option>
                       </select>
                       <p className="text-xs text-gray-500">
-                        {ROLE_DESCRIPTIONS[user.role]}
+                        {getRoleDescription(user.role, locale)}
                       </p>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(user.created_at).toLocaleDateString()}
+                    {new Date(user.created_at).toLocaleDateString(locale)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     {user.id !== currentUserProfile?.id && (
@@ -186,7 +188,7 @@ export function UserManagement() {
                         ) : (
                           <Trash2 className="h-4 w-4" />
                         )}
-                        Delete
+                        {t("common.delete")}
                       </button>
                     )}
                   </td>
@@ -199,20 +201,20 @@ export function UserManagement() {
         {users.length === 0 && (
           <div className="text-center py-12">
             <Shield className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">No users found</p>
+            <p className="text-sm text-gray-500">{t("users.noUsers")}</p>
           </div>
         )}
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-900 mb-2">Role Definitions</h3>
+        <h3 className="text-sm font-medium text-blue-900 mb-2">{t("users.roleDefinitions")}</h3>
         <dl className="space-y-2">
-          {Object.entries(ROLE_DESCRIPTIONS).map(([role, description]) => (
+          {Object.values(SYSTEM_ROLES).map((role) => (
             <div key={role} className="flex gap-2">
               <dt className="text-sm font-medium text-blue-800 min-w-[100px]">
-                {ROLE_LABELS[role as UserRole]}:
+                {getRoleDisplayName(role, locale)}:
               </dt>
-              <dd className="text-sm text-blue-700">{description}</dd>
+              <dd className="text-sm text-blue-700">{getRoleDescription(role, locale)}</dd>
             </div>
           ))}
         </dl>

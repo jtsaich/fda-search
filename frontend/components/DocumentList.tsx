@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Trash2, FileText, Loader2 } from "lucide-react";
+import { useTranslation } from "@/components/i18n-provider";
 
 interface Document {
   id: string;
@@ -15,6 +16,7 @@ export function DocumentList() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { t, locale } = useTranslation();
 
   const fetchDocuments = async () => {
     try {
@@ -37,7 +39,7 @@ export function DocumentList() {
   }, []);
 
   const deleteDocument = async (id: string, filename: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${filename}"? This will remove all associated vectors from the database. This action cannot be undone.`)) {
+    if (!window.confirm(t("documents.confirmDelete", { filename }))) {
       return;
     }
 
@@ -52,12 +54,14 @@ export function DocumentList() {
       if (response.ok) {
         setDocuments((prev) => prev.filter((doc) => doc.id !== id));
       } else {
-        const error = await response.json().catch(() => ({ detail: "Unknown error" }));
-        alert(`Failed to delete document: ${error.detail}`);
+        const error = await response
+          .json()
+          .catch(() => ({ detail: t("documents.unknownError") }));
+        alert(t("documents.deleteFailed", { detail: error.detail }));
       }
     } catch (error) {
       console.error("Failed to delete document:", error);
-      alert("Failed to delete document. Please try again.");
+      alert(t("documents.deleteFailedRetry"));
     } finally {
       setDeletingId(null);
     }
@@ -70,7 +74,7 @@ export function DocumentList() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+    return new Date(dateString).toLocaleDateString(locale, {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -92,10 +96,10 @@ export function DocumentList() {
       <div className="text-center py-12">
         <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         <p className="text-lg font-semibold text-gray-700">
-          No documents uploaded
+          {t("documents.noDocuments")}
         </p>
         <p className="text-sm text-gray-500 mt-2">
-          Upload documents to get started
+          {t("documents.uploadToStart")}
         </p>
       </div>
     );
@@ -104,26 +108,26 @@ export function DocumentList() {
   return (
     <div className="w-full">
       <h2 className="text-xl font-bold text-gray-800 mb-4 px-6">
-        Uploaded Documents
+        {t("documents.uploadedDocuments")}
       </h2>
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Document
+                {t("documents.colDocument")}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Size
+                {t("documents.colSize")}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Chunks
+                {t("documents.colChunks")}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Uploaded
+                {t("documents.colUploaded")}
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
+                {t("documents.colActions")}
               </th>
             </tr>
           </thead>
@@ -137,7 +141,7 @@ export function DocumentList() {
                       <div className="text-sm font-medium text-gray-900 truncate" title={doc.filename}>
                         {doc.filename}
                       </div>
-                      <div className="text-xs text-gray-500 truncate" title={doc.id}>ID: {doc.id}</div>
+                      <div className="text-xs text-gray-500 truncate" title={doc.id}>{t("documents.idLabel", { id: doc.id })}</div>
                     </div>
                   </div>
                 </td>
@@ -155,17 +159,17 @@ export function DocumentList() {
                     onClick={() => deleteDocument(doc.id, doc.filename)}
                     disabled={deletingId === doc.id}
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:text-white hover:bg-red-600 border border-red-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Delete document"
+                    title={t("documents.deleteTitle")}
                   >
                     {deletingId === doc.id ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Deleting...</span>
+                        <span>{t("common.deleting")}</span>
                       </>
                     ) : (
                       <>
                         <Trash2 className="h-4 w-4" />
-                        <span>Delete</span>
+                        <span>{t("common.delete")}</span>
                       </>
                     )}
                   </button>

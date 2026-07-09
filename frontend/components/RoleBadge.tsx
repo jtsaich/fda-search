@@ -2,7 +2,8 @@
 
 import { Shield } from 'lucide-react';
 import type { UserRole } from '@/types/roles';
-import { ROLE_LABELS } from '@/types/roles';
+import { getRoleDisplayName } from '@/types/roles';
+import { useTranslation } from '@/components/i18n-provider';
 
 interface RoleBadgeProps {
   role: UserRole;
@@ -11,6 +12,7 @@ interface RoleBadgeProps {
 }
 
 export function RoleBadge({ role, showIcon = true, size = 'md' }: RoleBadgeProps) {
+  const { locale } = useTranslation();
   const colors: Record<UserRole, string> = {
     admin: 'bg-purple-100 text-purple-800 border-purple-200',
     researcher: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -34,7 +36,7 @@ export function RoleBadge({ role, showIcon = true, size = 'md' }: RoleBadgeProps
       className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${colors[role]} ${sizes[size]}`}
     >
       {showIcon && <Shield className={iconSizes[size]} />}
-      {ROLE_LABELS[role]}
+      {getRoleDisplayName(role, locale)}
     </span>
   );
 }

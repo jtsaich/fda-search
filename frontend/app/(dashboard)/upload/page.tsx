@@ -1,8 +1,10 @@
 "use client";
 
 import { DocumentUpload } from "@/components/DocumentUpload";
+import { useTranslation } from "@/components/i18n-provider";
 
 export default function UploadPage() {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <div className="flex-1 overflow-hidden min-h-0">
@@ -10,7 +12,7 @@ export default function UploadPage() {
           <div className="flex h-full flex-1 min-h-0">
             <div className="flex flex-1 flex-col overflow-auto bg-white">
               <h2 className="mb-4 px-6 text-xl font-semibold text-gray-800">
-                Upload Documents
+                {t("chat.uploadDocuments")}
               </h2>
               <DocumentUpload />
             </div>

@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, File, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/components/i18n-provider";
 
 interface UploadedFile {
   file: File;
@@ -13,6 +14,7 @@ interface UploadedFile {
 
 export function DocumentUpload() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const { t } = useTranslation();
   const [isUploading, setIsUploading] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -67,12 +69,14 @@ export function DocumentUpload() {
             )
           );
         } else {
-          throw new Error("Upload failed");
+          throw new Error(t("documents.uploadFailed"));
         }
       } catch {
         setFiles((prev) =>
           prev.map((f, idx) =>
-            idx === i ? { ...f, status: "error", message: "Upload failed" } : f
+            idx === i
+              ? { ...f, status: "error", message: t("documents.uploadFailed") }
+              : f
           )
         );
       }
@@ -102,15 +106,15 @@ export function DocumentUpload() {
         <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         {isDragActive ? (
           <p className="text-lg font-semibold text-blue-600">
-            Drop the files here...
+            {t("documents.dropFilesHere")}
           </p>
         ) : (
           <div>
             <p className="text-lg font-semibold text-gray-700">
-              Drag & drop documents here
+              {t("documents.dragDropHere")}
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              or click to select files (PDF, TXT, DOCX, CSV, XLSX)
+              {t("documents.clickToSelect")}
             </p>
           </div>
         )}
@@ -118,7 +122,7 @@ export function DocumentUpload() {
 
       {files.length > 0 && (
         <div className="mt-6 space-y-2">
-          <h3 className="text-lg font-semibold text-gray-700">Files</h3>
+          <h3 className="text-lg font-semibold text-gray-700">{t("documents.filesHeading")}</h3>
           {files.map((uploadedFile, index) => (
             <div
               key={index}
@@ -138,10 +142,10 @@ export function DocumentUpload() {
                   <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
                 )}
                 {uploadedFile.status === "success" && (
-                  <span className="text-xs text-green-600">✓ Uploaded</span>
+                  <span className="text-xs text-green-600">{t("documents.uploaded")}</span>
                 )}
                 {uploadedFile.status === "error" && (
-                  <span className="text-xs text-red-600">Failed</span>
+                  <span className="text-xs text-red-600">{t("documents.failed")}</span>
                 )}
                 {uploadedFile.status === "pending" && (
                   <button
@@ -164,12 +168,12 @@ export function DocumentUpload() {
               {isUploading ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Uploading...
+                  {t("documents.uploading")}
                 </span>
+              ) : pendingFiles.length > 1 ? (
+                t("documents.uploadManyFiles", { n: pendingFiles.length })
               ) : (
-                `Upload ${pendingFiles.length} file${
-                  pendingFiles.length > 1 ? "s" : ""
-                }`
+                t("documents.uploadOneFile", { n: pendingFiles.length })
               )}
             </button>
           )}

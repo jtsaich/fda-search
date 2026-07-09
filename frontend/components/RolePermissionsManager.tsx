@@ -17,8 +17,10 @@ import {
   getPermissionLabel,
   isSystemRole,
 } from "@/types/roles";
+import { useTranslation } from "@/components/i18n-provider";
 
 export function RolePermissionsManager() {
+  const { t, locale } = useTranslation();
   const [roles, setRoles] = useState<RoleData[]>([]);
   const [rolePermissions, setRolePermissions] = useState<
     Map<UserRole, Set<string>>
@@ -108,7 +110,7 @@ export function RolePermissionsManager() {
 
       setRolePermissions(permMap);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data");
+      setError(err instanceof Error ? err.message : t("roles.failedLoadData"));
     } finally {
       setLoading(false);
     }
@@ -149,21 +151,25 @@ export function RolePermissionsManager() {
 
       setRolePermissions(new Map(rolePermissions));
       setSuccess(
-        `Permission ${
-          hasPermission ? "removed from" : "added to"
-        } ${getRoleDisplayName(role, roles)}`
+        hasPermission
+          ? t("roles.permissionRemoved", {
+              role: getRoleDisplayName(role, locale, roles),
+            })
+          : t("roles.permissionAdded", {
+              role: getRoleDisplayName(role, locale, roles),
+            })
       );
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to update permission"
+        err instanceof Error ? err.message : t("roles.failedUpdatePermission")
       );
     }
   }
 
   async function createPermission() {
     if (!newPermission.name.trim()) {
-      setError("Permission name is required");
+      setError(t("roles.permissionNameRequired"));
       return;
     }
 
@@ -178,13 +184,13 @@ export function RolePermissionsManager() {
 
       if (error) throw error;
 
-      setSuccess("Permission created successfully");
+      setSuccess(t("roles.permissionCreated"));
       setNewPermission({ name: "", description: "" });
       setShowAddPermission(false);
       await loadData();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to create permission"
+        err instanceof Error ? err.message : t("roles.failedCreatePermission")
       );
     } finally {
       setSaving(false);
@@ -193,7 +199,7 @@ export function RolePermissionsManager() {
 
   async function createRole() {
     if (!newRole.name.trim() || !newRole.display_name.trim()) {
-      setError("Role name and display name are required");
+      setError(t("roles.roleNamesRequired"));
       return;
     }
 
@@ -210,12 +216,12 @@ export function RolePermissionsManager() {
 
       if (error) throw error;
 
-      setSuccess("Role created successfully");
+      setSuccess(t("roles.roleCreated"));
       setNewRole({ name: "", display_name: "", description: "" });
       setShowAddRole(false);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create role");
+      setError(err instanceof Error ? err.message : t("roles.failedCreateRole"));
     } finally {
       setSaving(false);
     }
@@ -227,7 +233,7 @@ export function RolePermissionsManager() {
   ) {
     if (
       !confirm(
-        `Are you sure you want to delete the permission "${permissionName}"? This will remove it from all roles.`
+        t("roles.confirmDeletePermission", { name: permissionName })
       )
     ) {
       return;
@@ -241,24 +247,24 @@ export function RolePermissionsManager() {
 
       if (error) throw error;
 
-      setSuccess("Permission deleted successfully");
+      setSuccess(t("roles.permissionDeleted"));
       await loadData();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to delete permission"
+        err instanceof Error ? err.message : t("roles.failedDeletePermission")
       );
     }
   }
 
   async function deleteRole(roleId: string, roleName: string) {
     if (isSystemRole(roleName)) {
-      setError("System roles cannot be deleted");
+      setError(t("roles.systemRolesCannotBeDeleted"));
       return;
     }
 
     if (
       !confirm(
-        `Are you sure you want to delete the role "${roleName}"? Users with this role will need to be reassigned.`
+        t("roles.confirmDeleteRole", { name: roleName })
       )
     ) {
       return;
@@ -269,10 +275,10 @@ export function RolePermissionsManager() {
 
       if (error) throw error;
 
-      setSuccess("Role deleted successfully");
+      setSuccess(t("roles.roleDeleted"));
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete role");
+      setError(err instanceof Error ? err.message : t("roles.failedDeleteRole"));
     }
   }
 
@@ -302,10 +308,10 @@ export function RolePermissionsManager() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-gray-900">
-            Role & Permissions Manager
+            {t("roles.title")}
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Create custom roles and configure their permissions
+            {t("roles.subtitle")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -314,14 +320,14 @@ export function RolePermissionsManager() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm"
           >
             <Plus className="h-4 w-4" />
-            Add Role
+            {t("roles.addRole")}
           </button>
           <button
             onClick={() => setShowAddPermission(!showAddPermission)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
           >
             <Plus className="h-4 w-4" />
-            Add Permission
+            {t("roles.addPermission")}
           </button>
         </div>
       </div>
@@ -331,7 +337,7 @@ export function RolePermissionsManager() {
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <h3 className="text-sm font-medium text-red-800">{t("common.error")}</h3>
               <p className="text-sm text-red-700 mt-1">{error}</p>
             </div>
           </div>
@@ -350,12 +356,12 @@ export function RolePermissionsManager() {
       {showAddRole && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Add New Role
+            {t("roles.addNewRole")}
           </h3>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Role Name (Internal) *
+                {t("roles.roleNameInternal")}
               </label>
               <input
                 type="text"
@@ -363,18 +369,17 @@ export function RolePermissionsManager() {
                 onChange={(e) =>
                   setNewRole({ ...newRole, name: e.target.value })
                 }
-                placeholder="e.g., analyst, manager, auditor"
+                placeholder={t("roles.roleNamePlaceholder")}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Lowercase, no spaces (will be converted to lowercase with
-                underscores)
+                {t("roles.roleNameHint")}
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Display Name *
+                {t("roles.displayName")}
               </label>
               <input
                 type="text"
@@ -382,24 +387,24 @@ export function RolePermissionsManager() {
                 onChange={(e) =>
                   setNewRole({ ...newRole, display_name: e.target.value })
                 }
-                placeholder="e.g., Data Analyst, Project Manager"
+                placeholder={t("roles.displayNamePlaceholder")}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Human-readable name shown in the UI
+                {t("roles.displayNameHint")}
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
+                {t("common.description")}
               </label>
               <textarea
                 value={newRole.description}
                 onChange={(e) =>
                   setNewRole({ ...newRole, description: e.target.value })
                 }
-                placeholder="Brief description of this role's purpose and capabilities"
+                placeholder={t("roles.roleDescriptionPlaceholder")}
                 rows={2}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
@@ -412,7 +417,7 @@ export function RolePermissionsManager() {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm disabled:opacity-50"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                Create Role
+                {t("roles.createRole")}
               </button>
               <button
                 onClick={() => {
@@ -421,7 +426,7 @@ export function RolePermissionsManager() {
                 }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
           </div>
@@ -431,12 +436,12 @@ export function RolePermissionsManager() {
       {showAddPermission && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Add New Permission
+            {t("roles.addNewPermission")}
           </h3>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Permission Name *
+                {t("roles.permissionName")}
               </label>
               <input
                 type="text"
@@ -444,17 +449,17 @@ export function RolePermissionsManager() {
                 onChange={(e) =>
                   setNewPermission({ ...newPermission, name: e.target.value })
                 }
-                placeholder="e.g., reports.export, analytics.view"
+                placeholder={t("roles.permissionNamePlaceholder")}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Use dot notation: feature.action (e.g., documents.upload)
+                {t("roles.permissionNameHint")}
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
+                {t("common.description")}
               </label>
               <textarea
                 value={newPermission.description}
@@ -464,7 +469,7 @@ export function RolePermissionsManager() {
                     description: e.target.value,
                   })
                 }
-                placeholder="Brief description of what this permission allows"
+                placeholder={t("roles.permissionDescriptionPlaceholder")}
                 rows={2}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -477,7 +482,7 @@ export function RolePermissionsManager() {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                Create Permission
+                {t("roles.createPermission")}
               </button>
               <button
                 onClick={() => {
@@ -486,7 +491,7 @@ export function RolePermissionsManager() {
                 }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
           </div>
@@ -499,7 +504,7 @@ export function RolePermissionsManager() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Permission
+                  {t("roles.permission")}
                 </th>
                 {roles.map((role) => (
                   <th
@@ -516,13 +521,13 @@ export function RolePermissionsManager() {
                         {role.display_name}
                       </span>
                       {role.is_system_role && (
-                        <span className="text-xs text-gray-400">(System)</span>
+                        <span className="text-xs text-gray-400">{t("roles.system")}</span>
                       )}
                       {!role.is_system_role && (
                         <button
                           onClick={() => deleteRole(role.id, role.name)}
                           className="text-xs text-red-600 hover:text-red-700"
-                          title="Delete role"
+                          title={t("roles.deleteRole")}
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -531,7 +536,7 @@ export function RolePermissionsManager() {
                   </th>
                 ))}
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  {t("common.actions")}
                 </th>
               </tr>
             </thead>
@@ -541,7 +546,7 @@ export function RolePermissionsManager() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-gray-900">
-                        {getPermissionLabel(permission.name)}
+                        {getPermissionLabel(permission.name, locale)}
                       </span>
                       <span className="text-xs text-gray-500 font-mono">
                         {permission.name}
@@ -573,7 +578,7 @@ export function RolePermissionsManager() {
                               : "bg-gray-50 border-gray-300 text-gray-400 hover:bg-gray-100"
                           }`}
                           title={
-                            hasPermission ? "Click to remove" : "Click to add"
+                            hasPermission ? t("roles.clickToRemove") : t("roles.clickToAdd")
                           }
                         >
                           {hasPermission ? (
@@ -591,7 +596,7 @@ export function RolePermissionsManager() {
                         deletePermission(permission.id, permission.name)
                       }
                       className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
-                      title="Delete permission"
+                      title={t("roles.deletePermission")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -605,12 +610,12 @@ export function RolePermissionsManager() {
         {allPermissions.length === 0 && (
           <div className="text-center py-12">
             <Shield className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">No permissions found</p>
+            <p className="text-sm text-gray-500">{t("roles.noPermissionsFound")}</p>
             <button
               onClick={() => setShowAddPermission(true)}
               className="mt-4 text-sm text-blue-600 hover:text-blue-700"
             >
-              Create your first permission
+              {t("roles.createFirstPermission")}
             </button>
           </div>
         )}
@@ -618,7 +623,7 @@ export function RolePermissionsManager() {
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h3 className="text-sm font-medium text-blue-900 mb-2">
-          Current Roles
+          {t("roles.currentRoles")}
         </h3>
         <dl className="space-y-2">
           {roles.map((role) => (
@@ -632,7 +637,7 @@ export function RolePermissionsManager() {
                 {role.display_name}:
               </dt>
               <dd className="text-sm text-blue-700">
-                {role.description || "No description"}
+                {role.description || t("roles.noDescription")}
               </dd>
             </div>
           ))}
@@ -643,20 +648,19 @@ export function RolePermissionsManager() {
         <div className="flex gap-3">
           <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
           <div className="text-sm text-yellow-800">
-            <p className="font-medium mb-1">Important Notes:</p>
+            <p className="font-medium mb-1">{t("roles.importantNotes")}</p>
             <ul className="list-disc list-inside space-y-1 text-yellow-700">
               <li>
-                System roles (Admin, Researcher, Viewer) cannot be deleted
+                {t("roles.note1")}
               </li>
               <li>
-                Custom roles can be deleted if no users are assigned to them
+                {t("roles.note2")}
               </li>
-              <li>Changes take effect immediately for all users</li>
+              <li>{t("roles.note3")}</li>
               <li>
-                Users may need to refresh their browser to see permission
-                changes
+                {t("roles.note4")}
               </li>
-              <li>Always test new roles in a development environment first</li>
+              <li>{t("roles.note5")}</li>
             </ul>
           </div>
         </div>

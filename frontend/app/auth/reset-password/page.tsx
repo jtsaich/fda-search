@@ -4,6 +4,7 @@ import { useState, FormEvent } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/components/i18n-provider";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -12,6 +13,7 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
   const router = useRouter();
+  const { t } = useTranslation();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,12 +30,12 @@ export default function ResetPasswordPage() {
         throw error;
       }
 
-      setMessage("Password updated successfully. Redirecting to login...");
+      setMessage(t("auth.passwordUpdated"));
       setTimeout(() => {
         router.push("/login");
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update password");
+      setError(err instanceof Error ? err.message : t("auth.updatePasswordFailed"));
     } finally {
       setLoading(false);
     }
@@ -43,10 +45,10 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg border border-gray-200">
         <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-          Set new password
+          {t("auth.setNewPassword")}
         </h1>
         <p className="text-sm text-gray-600 mb-6">
-          Please enter your new password below.
+          {t("auth.enterNewPassword")}
         </p>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -55,7 +57,7 @@ export default function ResetPasswordPage() {
               htmlFor="password"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              New Password
+              {t("auth.newPassword")}
             </label>
             <input
               id="password"
@@ -86,7 +88,7 @@ export default function ResetPasswordPage() {
             className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Update Password
+            {t("auth.updatePassword")}
           </button>
         </form>
       </div>

@@ -4,6 +4,7 @@ import { useState, FormEvent } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useTranslation } from "@/components/i18n-provider";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -11,6 +12,7 @@ export default function ForgotPasswordPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
+  const { t } = useTranslation();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,9 +29,9 @@ export default function ForgotPasswordPage() {
         throw error;
       }
 
-      setMessage("Check your email for the password reset link.");
+      setMessage(t("auth.checkEmailReset"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send reset email");
+      setError(err instanceof Error ? err.message : t("auth.sendResetFailed"));
     } finally {
       setLoading(false);
     }
@@ -44,16 +46,15 @@ export default function ForgotPasswordPage() {
             className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to login
+            {t("auth.backToLogin")}
           </Link>
         </div>
 
         <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-          Reset your password
+          {t("auth.resetYourPassword")}
         </h1>
         <p className="text-sm text-gray-600 mb-6">
-          Enter your email address and we&apos;ll send you a link to reset your
-          password.
+          {t("auth.resetInstructions")}
         </p>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -62,7 +63,7 @@ export default function ForgotPasswordPage() {
               htmlFor="email"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Email
+              {t("common.email")}
             </label>
             <input
               id="email"
@@ -93,7 +94,7 @@ export default function ForgotPasswordPage() {
             className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Send Reset Link
+            {t("auth.sendResetLink")}
           </button>
         </form>
       </div>

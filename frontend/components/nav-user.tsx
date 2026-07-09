@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { Check, ChevronsUpDown, Globe, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -21,9 +21,12 @@ import {
 } from "@/components/ui/sidebar";
 import { createClient } from "@/utils/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { useTranslation } from "@/components/i18n-provider";
+import { LOCALES, LOCALE_LABELS } from "@/lib/i18n/config";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
+  const { t, locale, setLocale } = useTranslation();
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const supabase = createClient();
@@ -56,7 +59,7 @@ export function NavUser() {
   }
 
   const displayName =
-    user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+    user.user_metadata?.full_name || user.email?.split("@")[0] || t("nav.userFallback");
   const displayEmail = user.email || "";
   const initials = displayName
     .split(" ")
@@ -114,9 +117,24 @@ export function NavUser() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+              {t("common.language")}
+            </DropdownMenuLabel>
+            {LOCALES.map((option) => (
+              <DropdownMenuItem
+                key={option}
+                onClick={() => setLocale(option)}
+                className="gap-2"
+              >
+                <Globe className="size-4" />
+                <span className="flex-1">{LOCALE_LABELS[option]}</span>
+                {option === locale && <Check className="size-4" />}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
               <LogOut />
-              Log out
+              {t("nav.logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

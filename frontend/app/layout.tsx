@@ -4,6 +4,14 @@ import "./globals.css";
 import { createClient } from "@/utils/supabase/server";
 import { SupabaseListener } from "@/components/SupabaseListener";
 import { Toaster } from "@/components/ui/sonner";
+import { cookies } from "next/headers";
+import { I18nProvider } from "@/components/i18n-provider";
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  isLocale,
+  type Locale,
+} from "@/lib/i18n/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,14 +41,20 @@ export default async function RootLayout({
     data: { session },
   } = await supabase.auth.getSession();
 
+  const cookieStore = await cookies();
+  const cookieLocale = cookieStore.get(LOCALE_COOKIE)?.value;
+  const locale: Locale = isLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
+
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SupabaseListener serverAccessToken={session?.access_token} />
-        {children}
-        <Toaster />
+        <I18nProvider initialLocale={locale}>
+          <SupabaseListener serverAccessToken={session?.access_token} />
+          {children}
+          <Toaster />
+        </I18nProvider>
       </body>
     </html>
   );
