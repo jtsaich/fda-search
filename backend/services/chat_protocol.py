@@ -368,6 +368,65 @@ def _extract_chart_specs(text: str) -> tuple[str, list[dict]]:
     cleaned = re.sub(r'CHART_SPEC:\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', '', text).strip()
     return cleaned, charts
 
+def stream_report_generation(
+    *,
+    client: Any,
+    messages: List[Dict[str, Any]],
+    model: str,
+    sources: Optional[List[Dict[str, Any]]] = None,
+    agent_steps: Optional[List[Dict[str, Any]]] = None,
+):
+    report_steps = list(agent_steps or [])
+    report_steps.append(
+        {
+            "agent": "docx_report_tool",
+            "status": "generating_report_artifact",
+        }
+    )
+
+    try:
+        for step in report_steps:
+            data = json.dumps({"type": "data-agent-step", "data": step})
+            yield f"data: {data}\n\n"
+
+        from services.report_service import generate_docx_report_artifact
+
+        report = generate_docx_report_artifact(
+            client=client,
+            messages=messages,
+            model=model,
+            sources=sources,
+        )
+        data = json.dumps(
+            {
+                "type": "data-agent-step",
+                "data": {
+                    "agent": "docx_report_tool",
+                    "status": "generated_report_artifact",
+                    "title": report.title,
+                },
+            }
+        )
+        yield f"data: {data}\n\n"
+
+        yield from stream_report_artifact(report, sources=sources)
+    except Exception as e:
+        logger.error(f"Error generating report artifact: {str(e)}")
+        data = json.dumps(
+            {
+                "type": "data-agent-step",
+                "data": {
+                    "agent": "docx_report_tool",
+                    "status": "failed",
+                    "issues": [str(e)],
+                },
+            }
+        )
+        yield f"data: {data}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+
 def stream_report_artifact(
     report: Any,
     sources: Optional[List[Dict[str, Any]]] = None,

@@ -17,12 +17,11 @@ from services.embedding_service import EmbeddingService
 from services.llm_service import LLMService
 from services.excel_service import ExcelService
 from services.starlims_agent_service import RAG_TOOL, StarlimsAgentService
-from services.report_service import generate_docx_report_artifact
 from services.chat_protocol import (
     ChatRequest,
     DEFAULT_MODEL,
     build_chart_instruction,
-    stream_report_artifact,
+    stream_report_generation,
     stream_text,
     count_message_tokens,
     truncate_messages_to_fit,
@@ -464,25 +463,13 @@ async def handle_chat_data(request: ChatRequest, protocol: str = Query("data")):
         excel_filenames = [d["filename"] for d in excel_data_list] if excel_data_list else None
 
         if is_docx_report_request(latest_query_text):
-            report_artifact = generate_docx_report_artifact(
-                client=llm_service.client,
-                messages=openai_messages,
-                model=model,
-                sources=evidence_sources,
-            )
-            report_steps = list(agent_steps or [])
-            report_steps.append(
-                {
-                    "agent": "docx_report_tool",
-                    "status": "generated_report_artifact",
-                    "title": report_artifact.title,
-                }
-            )
             response = StreamingResponse(
-                stream_report_artifact(
-                    report_artifact,
+                stream_report_generation(
+                    client=llm_service.client,
+                    messages=openai_messages,
+                    model=model,
                     sources=evidence_sources if evidence_sources else None,
-                    agent_steps=report_steps,
+                    agent_steps=agent_steps,
                 ),
                 media_type="text/event-stream",
             )

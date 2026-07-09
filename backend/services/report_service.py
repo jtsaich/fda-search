@@ -48,6 +48,7 @@ def generate_docx_report_artifact(
         messages=[*messages, {"role": "user", "content": REPORT_JSON_INSTRUCTION}],
         temperature=0.1,
         max_tokens=3000,
+        timeout=45,
     )
     raw_content = response.choices[0].message.content or ""
     payload = _parse_report_json(raw_content)
